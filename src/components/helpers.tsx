@@ -314,12 +314,25 @@ export const TIMER_COLORS = {
   reset: "#e53935",
 };
 
+// 通知（背景色）用のパレット。
+// 走行中の青(#e0f2ff)・終了時の赤(#ffd6d6)と紛らわしくならないよう、
+// 薄い青/薄いピンクは避け、彩度を上げて相互に見分けやすい色にしている。
+// ※キー名(blue/pink)は保存データ互換のため据え置き、色だけ差し替え。
 export const NB_COLOR_MAP = {
-  yellow: "#fff3b0",
-  orange: "#ffd8a8",
-  green:  "#d3f9d8",
-  blue:   "#cfe8ff",
-  pink:   "#ffd9e8",
+  yellow: "#ffe066",
+  orange: "#ffa94d",
+  green:  "#69db7c",
+  blue:   "#b197fc", // 実際は紫（動作中の青と区別）
+  pink:   "#66d9e8", // 実際はシアン（終了時の赤と区別）
+};
+
+// 背景色スウォッチの日本語ツールチップ（キー→表示名）
+export const NB_COLOR_LABEL: Record<string, string> = {
+  yellow: "黄",
+  orange: "橙",
+  green:  "緑",
+  blue:   "紫",
+  pink:   "シアン",
 };
 
 // 設定モーダル用の色スウォッチ候補（濃いめの見やすい色）

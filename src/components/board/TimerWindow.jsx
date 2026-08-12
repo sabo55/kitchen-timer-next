@@ -190,14 +190,21 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
           firedRef.current.add(tag);
         }
       }
-      // 通知ボタン: 押されている（armed）ものが「経過◯秒」で発火
+      // 通知ボタン: 押されている（armed）ものが「残り◯秒」で発火。
+      // 1ボタンに①②の2か所（残り時間＋音声）。②は音声未設定なら鳴らさない。
       for (const nb of ct?.notifyButtons || []) {
         if (!armedRef.current.has(nb.id)) continue;
-        const at = Number(nb.min || 0) * 60 + Number(nb.sec || 0);
-        const tag = "btn:" + nb.id;
-        if (e === at && !firedRef.current.has(tag)) {
-          player.playById(nb.sound);
-          firedRef.current.add(tag);
+        const points = [
+          { key: "a", at: Number(nb.min || 0) * 60 + Number(nb.sec || 0), sound: nb.sound },
+          { key: "b", at: Number(nb.min2 || 0) * 60 + Number(nb.sec2 || 0), sound: nb.sound2 },
+        ];
+        for (const p of points) {
+          if (!p.sound || p.sound === "none") continue;
+          const tag = "btn:" + nb.id + ":" + p.key;
+          if (rem === p.at && !firedRef.current.has(tag)) {
+            player.playById(p.sound);
+            firedRef.current.add(tag);
+          }
         }
       }
       if (e >= ctotal) finishNow();
@@ -411,9 +418,8 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
               </>
             ) : (
               <>
-            {/* 時間部（スワイプ移動） + 設定ギア */}
-            <div style={{ width: "100%", marginBottom: 6, display: "grid", gridTemplateColumns: "32px 1fr 32px", alignItems: "center" }}>
-              <div aria-hidden="true" style={{ width: 32, height: 32 }} />
+            {/* 時間部（スワイプ移動） */}
+            <div style={{ width: "100%", marginBottom: 6 }}>
               <div
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
@@ -428,12 +434,6 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
               >
                 {secToMMSS(remaining)}
               </div>
-              <button
-                aria-label="設定" title="設定（編集は今後対応）"
-                style={{ width: 32, height: 32, border: "1px solid #666", borderRadius: 8, background: "#fff", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", justifySelf: "end", marginTop: 40 }}
-              >
-                <img src={withBase("icons/gear64.svg")} width={16} height={16} alt="設定" />
-              </button>
             </div>
 
             {/* 走行中の移動解除ヒント */}
@@ -470,8 +470,13 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
               {notifyBtns.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
                   {notifyBtns.slice(0, 4).map((b) => {
-                    const at = Number(b.min || 0) * 60 + Number(b.sec || 0);
-                    const passed = running && elapsed > at;
+                    // 有効な発火点（音声あり）の中で最後に来る＝残りが最小の点
+                    const ats = [
+                      { at: Number(b.min || 0) * 60 + Number(b.sec || 0), s: b.sound },
+                      { at: Number(b.min2 || 0) * 60 + Number(b.sec2 || 0), s: b.sound2 },
+                    ].filter((p) => p.s && p.s !== "none").map((p) => p.at);
+                    const lastAt = ats.length ? Math.min(...ats) : 0;
+                    const passed = running && remaining < lastAt;
                     const on = armed.has(b.id);
                     return (
                       <button

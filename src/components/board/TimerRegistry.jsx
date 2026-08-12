@@ -6,7 +6,7 @@
 
 import React from "react";
 import { makeNotifyBtn, makeNotifyBg } from "../../lib/store";
-import { NB_COLOR_MAP } from "../helpers";
+import { NB_COLOR_MAP, NB_COLOR_LABEL } from "../helpers";
 import { buildRadioSoundList } from "../../lib/sounds-helper";
 
 const BG_COLORS = ["yellow", "orange", "green", "blue", "pink"];
@@ -14,8 +14,9 @@ const BG_COLORS = ["yellow", "orange", "green", "blue", "pink"];
 const MIN_OPTS = Array.from({ length: 100 }, (_, i) => i);
 const SEC_OPTS = Array.from({ length: 60 }, (_, i) => i);
 
+// 時間アナウンス（〇秒前/〇分経過）は実音源が無く鳴らないため候補から除外（withTimes: false）
 const startEndOpts = () => buildRadioSoundList({ withBuiltins: true, withCustom: true, withSilent: true, withTimes: false });
-const notifyOpts = () => buildRadioSoundList({ withBuiltins: true, withCustom: true, withSilent: true, withTimes: true });
+const notifyOpts = () => buildRadioSoundList({ withBuiltins: true, withCustom: true, withSilent: true, withTimes: false });
 
 const sel = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0 6px", background: "#fff", fontSize: 14 };
 const inp = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0 8px", background: "#fff", fontSize: 14, width: "100%", boxSizing: "border-box" };
@@ -153,12 +154,12 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
                   <div style={{ marginBottom: 4 }}>
                     <SoundSelect value={bg.sound} onChange={(v) => setBgs(bgs.map((x, j) => j === i ? { ...x, sound: v } : x))} opts={nOpts} />
                   </div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", rowGap: 6 }}>
                     <span style={{ fontSize: 12, color: "#556" }}>背景色</span>
                     {BG_COLORS.map((c) => (
                       <button key={c} onClick={() => setBgs(bgs.map((x, j) => j === i ? { ...x, color: c } : x))}
-                        title={c}
-                        style={{ width: 24, height: 24, borderRadius: 6, background: NB_COLOR_MAP[c], cursor: "pointer",
+                        title={NB_COLOR_LABEL[c] || c}
+                        style={{ width: 24, height: 24, borderRadius: 6, background: NB_COLOR_MAP[c], cursor: "pointer", flex: "0 0 auto",
                           border: bg.color === c ? "2px solid #111" : "1px solid #bbb" }} />
                     ))}
                   </div>
@@ -173,30 +174,43 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
         </div>
         )}
 
-        {/* 通知ボタン */}
+        {/* 通知ボタン（1ボタンに①②の2か所・残り時間で鳴らす） */}
         {!t.tenKey && (
         <div style={{ ...fieldGap, marginTop: 12 }}>
-          <span style={lbl}>通知ボタン（経過◯分◯秒で鳴らす・最大4）</span>
+          <span style={lbl}>通知ボタン（押すと「残り◯分◯秒」で鳴る・1つに2か所・最大4）</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {nbs.map((nb, i) => (
-              <div key={nb.id} style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 6, background: "#fff" }}>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
-                  <input style={{ ...inp, height: 30, width: 90 }} maxLength={4} placeholder="ボタン名" value={nb.label}
-                    onChange={(e) => setNbs(nbs.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                  <button onClick={() => setNbs(nbs.filter((_, j) => j !== i))}
-                    style={{ marginLeft: "auto", padding: "2px 6px", borderRadius: 6, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 11 }}>×</button>
+            {nbs.map((nb, i) => {
+              const patch = (p) => setNbs(nbs.map((x, j) => j === i ? { ...x, ...p } : x));
+              // ①②共通の「残り 分 秒 + 音声」行
+              const point = (label, minKey, secKey, soundKey, hint) => (
+                <div style={{ border: "1px solid #eee", borderRadius: 6, padding: 6, background: "#fafafa" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#556" }}>{label}</span>
+                    <span style={{ fontSize: 12 }}>残り</span>
+                    <select style={{ ...sel, height: 30 }} value={nb[minKey]} onChange={(e) => patch({ [minKey]: Number(e.target.value) })}>
+                      {MIN_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select><span style={{ fontSize: 12 }}>分</span>
+                    <select style={{ ...sel, height: 30 }} value={nb[secKey]} onChange={(e) => patch({ [secKey]: Number(e.target.value) })}>
+                      {SEC_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select><span style={{ fontSize: 12 }}>秒</span>
+                  </div>
+                  <SoundSelect value={nb[soundKey]} onChange={(v) => patch({ [soundKey]: v })} opts={nOpts} />
+                  {hint && <div style={{ fontSize: 11, color: "#889", marginTop: 2 }}>{hint}</div>}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                  <select style={{ ...sel, height: 30 }} value={nb.min} onChange={(e) => setNbs(nbs.map((x, j) => j === i ? { ...x, min: Number(e.target.value) } : x))}>
-                    {MIN_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select><span style={{ fontSize: 12 }}>分</span>
-                  <select style={{ ...sel, height: 30 }} value={nb.sec} onChange={(e) => setNbs(nbs.map((x, j) => j === i ? { ...x, sec: Number(e.target.value) } : x))}>
-                    {SEC_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select><span style={{ fontSize: 12 }}>秒</span>
+              );
+              return (
+                <div key={nb.id} style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 6, background: "#fff", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input style={{ ...inp, height: 30, width: 90 }} maxLength={4} placeholder="ボタン名" value={nb.label}
+                      onChange={(e) => patch({ label: e.target.value })} />
+                    <button onClick={() => setNbs(nbs.filter((_, j) => j !== i))}
+                      style={{ marginLeft: "auto", padding: "2px 6px", borderRadius: 6, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 11 }}>×</button>
+                  </div>
+                  {point("①", "min", "sec", "sound", null)}
+                  {point("②", "min2", "sec2", "sound2", "※②の音声を「（無音）」にすると②は鳴りません")}
                 </div>
-                <SoundSelect value={nb.sound} onChange={(v) => setNbs(nbs.map((x, j) => j === i ? { ...x, sound: v } : x))} opts={nOpts} />
-              </div>
-            ))}
+              );
+            })}
             {nbs.length < 4 && (
               <button onClick={() => setNbs([...nbs, makeNotifyBtn({ label: `通知${nbs.length + 1}` })])}
                 style={{ padding: "6px", borderRadius: 8, border: "1px dashed #888", background: "#fff", fontSize: 13, fontWeight: 700 }}>＋通知ボタン</button>

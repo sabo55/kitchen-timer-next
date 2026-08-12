@@ -186,9 +186,9 @@ export default function Board() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontWeight: 700 }}>ページ</span>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <button onClick={() => gotoPage(page - 1)} disabled={page <= 0} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #888" }}>◀</button>
+              <button onClick={() => gotoPage(page - 1)} disabled={page <= 0} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #888", background: "#fff", color: "#333" }}>{"◀︎"}</button>
               <span>{page + 1}/{pageCount}</span>
-              <button onClick={() => gotoPage(page + 1)} disabled={page >= pageCount - 1} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #888" }}>▶</button>
+              <button onClick={() => gotoPage(page + 1)} disabled={page >= pageCount - 1} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #888", background: "#fff", color: "#333" }}>{"▶︎"}</button>
             </div>
           </div>
 
@@ -248,9 +248,9 @@ export default function Board() {
           display: "flex", gap: 10, alignItems: "center", zIndex: 900,
           background: "#fff", borderRadius: 999, padding: "4px 10px", boxShadow: "0 2px 6px rgba(0,0,0,.15)",
         }}>
-          <button onClick={() => gotoPage(page - 1)} disabled={page <= 0} style={{ border: "none", background: "none", fontSize: 18 }}>◀</button>
+          <button onClick={() => gotoPage(page - 1)} disabled={page <= 0} style={{ border: "none", background: "none", fontSize: 18, color: "#333" }}>{"◀︎"}</button>
           <span style={{ fontWeight: 700 }}>{page + 1}/{pageCount}</span>
-          <button onClick={() => gotoPage(page + 1)} disabled={page >= pageCount - 1} style={{ border: "none", background: "none", fontSize: 18 }}>▶</button>
+          <button onClick={() => gotoPage(page + 1)} disabled={page >= pageCount - 1} style={{ border: "none", background: "none", fontSize: 18, color: "#333" }}>{"▶︎"}</button>
         </div>
       )}
 

@@ -62,9 +62,15 @@ export function makeNotifyBtn(partial = {}) {
   return {
     id: partial.id || genId("nb"),
     label: (partial.label ?? "").slice(0, 4),
+    // 押すと「残り◯分◯秒」で鳴る。1つのボタンに2か所（①→②）仕込める。
+    // ①: 予告など（例 残り1分5秒で「細麺入ります」）
     min: Number(partial.min ?? 0),
     sec: Number(partial.sec ?? 0),
     sound: partial.sound ?? "builtin-beep3",
+    // ②: 実行の合図など（例 残り1分で「ピッ」）。音声が未設定(空)なら②は鳴らさない。
+    min2: Number(partial.min2 ?? 0),
+    sec2: Number(partial.sec2 ?? 0),
+    sound2: partial.sound2 ?? "",
   };
 }
 
@@ -183,7 +189,7 @@ const BUILTIN_OR_TIME = (id) => {
 const timerSoundIds = (t) => [
   t.startSound, t.endSound, t.endInsertVoiceSound,
   ...(t.notifyBg || []).map((b) => b.sound),
-  ...(t.notifyButtons || []).map((b) => b.sound),
+  ...(t.notifyButtons || []).flatMap((b) => [b.sound, b.sound2]),
 ];
 
 function buildSoundNameMap(timers) {
@@ -218,7 +224,7 @@ function remapSoundsByName(timers, soundNames = {}) {
     endSound: resolve(t.endSound),
     endInsertVoiceSound: resolve(t.endInsertVoiceSound),
     notifyBg: (t.notifyBg || []).map((b) => ({ ...b, sound: resolve(b.sound) })),
-    notifyButtons: (t.notifyButtons || []).map((b) => ({ ...b, sound: resolve(b.sound) })),
+    notifyButtons: (t.notifyButtons || []).map((b) => ({ ...b, sound: resolve(b.sound), sound2: resolve(b.sound2) })),
   }));
 }
 
