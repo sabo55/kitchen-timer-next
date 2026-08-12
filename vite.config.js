@@ -4,7 +4,7 @@ import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  base: "/kitchen-timer/", // ★重要（repo名）
+  base: "/kitchen-timer-next/", // ★重要（repo名）
   plugins: [
     react(),
     VitePWA({
@@ -15,16 +15,16 @@ export default defineConfig({
         "apple-touch-icon.png",
       ],
       manifest: {
-        name: "Kitchen Timer",
-        short_name: "Timer",
-        start_url: "/kitchen-timer/",
-        scope: "/kitchen-timer/",
+        name: "Kitchen Timer Next",
+        short_name: "Timer2",
+        start_url: "/kitchen-timer-next/",
+        scope: "/kitchen-timer-next/",
         display: "standalone",
         background_color: "#ffffff",
         theme_color: "#ffffff",
         icons: [
-          { src: "/kitchen-timer/pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/kitchen-timer/pwa-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/kitchen-timer-next/pwa-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/kitchen-timer-next/pwa-512.png", sizes: "512x512", type: "image/png" },
         ],
       },
       workbox: {
