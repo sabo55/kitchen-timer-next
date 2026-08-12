@@ -11,6 +11,7 @@ import BoardAssign from "./BoardAssign";
 import {
   loadData, saveData, resetToDefaults, setById, timerById,
   exportConfig, importConfig, makeTimer, makeSet, makeFrame,
+  relinkTimersByHints,
 } from "../../lib/store";
 
 const FRAMES_PER_PAGE = 9;
@@ -302,7 +303,14 @@ export default function Board() {
         />
       )}
 
-      <AudioLibraryModal open={audioLibOpen} onClose={() => setAudioLibOpen(false)} />
+      <AudioLibraryModal
+        open={audioLibOpen}
+        onClose={() => setAudioLibOpen(false)}
+        onChange={(lib) => setData((d) => {
+          const timers = relinkTimersByHints(d.timers, lib);
+          return timers === d.timers ? d : { ...d, timers };
+        })}
+      />
     </div>
   );
 }

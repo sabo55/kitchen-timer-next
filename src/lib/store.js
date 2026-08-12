@@ -206,26 +206,53 @@ function buildSoundNameMap(timers) {
   return map;
 }
 
-// 読込時: soundNames を使い、各音声IDをローカルの同名音声IDに付け替える
-function remapSoundsByName(timers, soundNames = {}) {
-  const lib = loadAudioLibrary();
-  const byName = new Map(lib.map((s) => [String(s.name).trim(), String(s.id)]));
+// 音声ID→名前のヒントを永続化しておく（読込順に依存せず後から再リンクできるように）。
+const SOUND_HINTS_KEY = "ktimer_sound_hints_v1";
+export function loadSoundHints() {
+  try {
+    const raw = localStorage.getItem(SOUND_HINTS_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === "object" ? obj : {};
+  } catch { return {}; }
+}
+export function mergeSoundHints(map) {
+  if (!map || typeof map !== "object") return;
+  try {
+    const cur = loadSoundHints();
+    localStorage.setItem(SOUND_HINTS_KEY, JSON.stringify({ ...cur, ...map }));
+  } catch {}
+}
+
+// ローカルに存在しない音声ID（＝別端末由来）を、名前ヒント＋現在の音声ライブラリで
+// 同名のローカルIDへ付け替える。既にローカルに在るIDや内蔵/時間系は触らない。
+// lib を後から渡せば「音声を追加した瞬間」に呼んで自動再リンクできる（順番非依存）。
+export function relinkTimersByHints(timers, lib = loadAudioLibrary(), hints = loadSoundHints()) {
+  const byName = new Map((lib || []).map((s) => [String(s.name).trim(), String(s.id)]));
+  const byId = new Set((lib || []).map((s) => String(s.id)));
   const resolve = (id) => {
     const s = String(id || "");
     if (BUILTIN_OR_TIME(s)) return s;
-    const name = soundNames[s];
-    if (!name) return s; // 名前情報なし → そのまま
+    if (byId.has(s)) return s;                 // 既にローカルに存在 → そのまま
+    const name = hints[s];
+    if (!name) return s;                        // 名前ヒントなし → そのまま
     const localId = byName.get(String(name).trim());
-    return localId || s; // 同名がローカルに無ければ元のまま（＝無音フォールバック）
+    return localId || s;                        // 同名がローカルにあれば付け替え
   };
-  return timers.map((t) => ({
-    ...t,
-    startSound: resolve(t.startSound),
-    endSound: resolve(t.endSound),
-    endInsertVoiceSound: resolve(t.endInsertVoiceSound),
-    notifyBg: (t.notifyBg || []).map((b) => ({ ...b, sound: resolve(b.sound) })),
-    notifyButtons: (t.notifyButtons || []).map((b) => ({ ...b, sound: resolve(b.sound), sound2: resolve(b.sound2) })),
-  }));
+  let changed = false;
+  const next = (timers || []).map((t) => {
+    const nt = {
+      ...t,
+      startSound: resolve(t.startSound),
+      endSound: resolve(t.endSound),
+      endInsertVoiceSound: resolve(t.endInsertVoiceSound),
+      notifyBg: (t.notifyBg || []).map((b) => ({ ...b, sound: resolve(b.sound) })),
+      notifyButtons: (t.notifyButtons || []).map((b) => ({ ...b, sound: resolve(b.sound), sound2: resolve(b.sound2) })),
+    };
+    if (JSON.stringify(nt) !== JSON.stringify(t)) changed = true;
+    return nt;
+  });
+  // 変化が無ければ元配列を返す（不要な再描画/保存を避ける）
+  return changed ? next : timers;
 }
 
 export function exportConfig({ timers, sets, board }) {
@@ -235,7 +262,10 @@ export function exportConfig({ timers, sets, board }) {
 export function importConfig(text) {
   const obj = JSON.parse(text);
   if (!obj || obj.version !== 2) throw new Error("対応していない設定データです");
-  const timers = remapSoundsByName((obj.timers || []).map(makeTimer), obj.soundNames || {});
+  // 音声の名前ヒントを永続化（音声を後から追加しても再リンクできるように）
+  if (obj.soundNames) mergeSoundHints(obj.soundNames);
+  // 現時点のライブラリで付け替え（音声が未登録なら元IDのまま。後で音声追加時に自動再リンク）
+  const timers = relinkTimersByHints((obj.timers || []).map(makeTimer));
   return {
     timers,
     sets: (obj.sets || []).map(makeSet),
