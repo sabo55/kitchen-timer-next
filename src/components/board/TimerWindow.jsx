@@ -272,33 +272,44 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   };
 
   // --- ジェスチャ（時間部） ---
+  // スワイプ判定: 横移動が SWIPE_DIST 以上、かつ横成分が縦成分以上（=水平から45度以内）なら切替。
+  // 斜めでも方向が分かれば反応する。指を離す前（pointermove中）でも発火するので取りこぼしにくい。
+  const SWIPE_DIST = 32;
   const gestureRef = useRef(null);
   const onPointerDown = (e) => {
     const lpTimer = setTimeout(() => {
       if (gestureRef.current) gestureRef.current.longFired = true;
       if (running && !unlocked) armUnlock();
     }, LONGPRESS_MS);
-    gestureRef.current = { x: e.clientX, y: e.clientY, moved: false, longFired: false, lpTimer };
+    gestureRef.current = { x: e.clientX, y: e.clientY, moved: false, longFired: false, swiped: false, lpTimer };
   };
   const onPointerMove = (e) => {
     const g = gestureRef.current; if (!g) return;
-    if (Math.abs(e.clientX - g.x) > 12 || Math.abs(e.clientY - g.y) > 12) {
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
       g.moved = true;
       if (g.lpTimer) { clearTimeout(g.lpTimer); g.lpTimer = null; }
+    }
+    // 45度以内の横移動が一定量に達したら、離す前でも即切替
+    if (!g.swiped && Math.abs(dx) >= SWIPE_DIST && Math.abs(dx) >= Math.abs(dy)) {
+      g.swiped = true;
+      move(dx < 0 ? 1 : -1);
     }
   };
   const onPointerUp = (e) => {
     const g = gestureRef.current; gestureRef.current = null;
     if (!g) return;
     if (g.lpTimer) clearTimeout(g.lpTimer);
+    if (g.swiped) return; // 移動中に切替済み
     const dx = e.clientX - g.x, dy = e.clientY - g.y;
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+    if (Math.abs(dx) >= SWIPE_DIST && Math.abs(dx) >= Math.abs(dy)) {
       move(dx < 0 ? 1 : -1);
       return;
     }
     if (g.longFired) return;
     if (!g.moved && finished) reset();
   };
+  const onPointerCancel = () => { gestureRef.current = null; };
 
   const resetLP = useRef(null);
   const onResetDown = () => {
@@ -322,7 +333,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
     display: "flex", flexDirection: "column", alignItems: "center",
     boxShadow: "0 2px 6px rgba(0,0,0,.15)",
     border: moved ? "3px solid #e53935" : "3px solid transparent",
-    userSelect: "none", WebkitUserSelect: "none", touchAction: "pan-y", position: "relative",
+    userSelect: "none", WebkitUserSelect: "none", touchAction: "none", position: "relative",
   };
 
   // 3ボタンは「縦2文字」で幅を細くし、タイマー名の領域を広げる
@@ -385,7 +396,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
               <>
                 {/* テンキー入力: 時間表示（バッファ/残り） */}
                 <div
-                  onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+                  onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerCancel}
                   style={{
                     textAlign: "center", fontVariantNumeric: "tabular-nums", fontFeatureSettings: '"tnum" 1',
                     fontSize: "clamp(2rem, 31cqh, 10rem)", fontWeight: 700, color: COLORS.txt, lineHeight: 1.05, marginBottom: 4,
@@ -424,6 +435,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
+                onPointerCancel={onPointerCancel}
                 style={{
                   textAlign: "center", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif",
                   fontVariantNumeric: "tabular-nums", fontFeatureSettings: '"tnum" 1',
