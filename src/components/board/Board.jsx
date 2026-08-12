@@ -2,7 +2,7 @@
 // 本番ボード。各枠(frame)に割り当てられたセット(帯)を TimerWindow(窓)で表示する。
 // 表示数 1/4/9・ページ送り・設定（初期化 / エクスポート・インポート）。
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import TimerWindow from "./TimerWindow";
 import TimerRegistry from "./TimerRegistry";
 import AudioLibraryModal from "../AudioLibraryModal";
@@ -28,6 +28,17 @@ export default function Board() {
   const [audioLibOpen, setAudioLibOpen] = useState(false);
   const [ioText, setIoText] = useState("");
   const [ioMsg, setIoMsg] = useState("");
+
+  // タイマー登録の「保存しないで閉じる」用スナップショット（開いた時点/最後に保存した時点の timers・sets）
+  const registrySnapRef = useRef(null);
+  const snapshotRegistry = () => { registrySnapRef.current = JSON.parse(JSON.stringify({ timers, sets })); };
+  const openRegistry = () => { snapshotRegistry(); setRegistryOpen(true); setMenuOpen(false); };
+  const saveRegistry = () => { saveData({ timers, sets, board }); snapshotRegistry(); };
+  const discardRegistry = () => {
+    const s = registrySnapRef.current;
+    if (s) setData((d) => ({ ...d, timers: s.timers, sets: s.sets }));
+    setRegistryOpen(false);
+  };
 
   // 登録タイマー（プール）CRUD
   const updateTimer = (id, patch) =>
@@ -203,7 +214,7 @@ export default function Board() {
 
           <hr style={{ margin: "10px 0", border: 0, borderTop: "1px solid #eee" }} />
 
-          <button onClick={() => { setRegistryOpen(true); setMenuOpen(false); }}
+          <button onClick={openRegistry}
             style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #2a7", background: "#eaf7ef", color: "#1a7", fontWeight: 800, marginBottom: 8 }}>
             タイマー登録
           </button>
@@ -271,7 +282,8 @@ export default function Board() {
           onDelete={deleteTimer}
           onAdd={addTimer}
           onMove={moveTimer}
-          onSave={() => saveData({ timers, sets, board })}
+          onSave={saveRegistry}
+          onDiscard={discardRegistry}
           onGoToSets={() => { setRegistryOpen(false); setSetEditorOpen(true); }}
           onClose={() => setRegistryOpen(false)}
         />

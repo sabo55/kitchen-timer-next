@@ -23,13 +23,14 @@ const inp = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0
 const lbl = { fontSize: 12, color: "#556", fontWeight: 700, marginBottom: 2 };
 const fieldGap = { display: "flex", flexDirection: "column", gap: 2, marginTop: 8 };
 
-export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose, onSave, onMove, onGoToSets }) {
+export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose, onSave, onDiscard, onMove, onGoToSets }) {
   const sOpts = startEndOpts();
   const nOpts = notifyOpts();
 
   // 保存の確認フィードバック（変更は自動保存だが、明示保存＋「保存しました」を出す）
   const [savedKey, setSavedKey] = React.useState(null);
   const [dirty, setDirty] = React.useState(false); // この画面で編集したか
+  const [askClose, setAskClose] = React.useState(false); // 閉じる時の確認ダイアログ
   const flashSaved = (key) => {
     try { onSave && onSave(); } catch {}
     setDirty(false);
@@ -44,11 +45,13 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
   const dAdd = () => { setDirty(true); onAdd(); };
   const dMove = (idx, to) => { setDirty(true); onMove && onMove(idx, to); };
 
-  // 閉じる時、編集していれば案内（変更は自動保存済みだがユーザーに知らせる）
+  // 閉じる時、編集していれば「保存して閉じる／保存しないで閉じる」を選ばせる
   const handleClose = () => {
-    if (dirty && !window.confirm("編集した内容は自動で保存されています。このまま閉じてよろしいですか？")) return;
+    if (dirty) { setAskClose(true); return; }
     onClose();
   };
+  const saveAndClose = () => { try { onSave && onSave(); } catch {} setDirty(false); setAskClose(false); onClose(); };
+  const discardAndClose = () => { setAskClose(false); (onDiscard || onClose)(); };
   const handleGoToSets = () => { try { onSave && onSave(); } catch {} setDirty(false); onGoToSets && onGoToSets(); };
 
   const SoundSelect = ({ value, onChange, opts }) => (
@@ -308,6 +311,23 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
           }}>＋タイマー追加</button>
         </div>
       </div>
+
+      {askClose && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 4000, background: "rgba(0,0,0,.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, width: 340, maxWidth: "100%", boxShadow: "0 8px 24px rgba(0,0,0,.25)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>編集した内容があります</div>
+            <div style={{ fontSize: 13, color: "#556", marginBottom: 16 }}>「保存しないで閉じる」を選ぶと、今回の編集内容は取り消されます。</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={saveAndClose}
+                style={{ padding: "11px", borderRadius: 10, border: "none", background: "#2a7", color: "#fff", fontWeight: 800, fontSize: 15 }}>保存して閉じる</button>
+              <button onClick={discardAndClose}
+                style={{ padding: "11px", borderRadius: 10, border: "1px solid #e53935", background: "#fff", color: "#e53935", fontWeight: 800, fontSize: 15 }}>保存しないで閉じる</button>
+              <button onClick={() => setAskClose(false)}
+                style={{ padding: "11px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700, fontSize: 15 }}>キャンセル</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
