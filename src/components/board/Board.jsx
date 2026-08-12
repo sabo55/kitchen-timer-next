@@ -261,6 +261,7 @@ export default function Board() {
           onDuplicate={duplicateTimer}
           onDelete={deleteTimer}
           onAdd={addTimer}
+          onSave={() => saveData({ timers, sets, board })}
           onClose={() => setRegistryOpen(false)}
         />
       )}

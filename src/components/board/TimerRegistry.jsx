@@ -23,9 +23,17 @@ const inp = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0
 const lbl = { fontSize: 12, color: "#556", fontWeight: 700, marginBottom: 2 };
 const fieldGap = { display: "flex", flexDirection: "column", gap: 2, marginTop: 8 };
 
-export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose }) {
+export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose, onSave }) {
   const sOpts = startEndOpts();
   const nOpts = notifyOpts();
+
+  // 保存の確認フィードバック（変更は自動保存だが、明示保存＋「保存しました」を出す）
+  const [savedKey, setSavedKey] = React.useState(null);
+  const flashSaved = (key) => {
+    try { onSave && onSave(); } catch {}
+    setSavedKey(key);
+    setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1600);
+  };
 
   const SoundSelect = ({ value, onChange, opts }) => (
     <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={{ ...sel, width: "100%" }}>
@@ -46,7 +54,10 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <span style={{ fontWeight: 700, color: "#334" }}>No.{idx + 1}</span>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {savedKey === t.id && <span style={{ fontSize: 11, color: "#2a7", fontWeight: 700 }}>保存しました</span>}
+            <button onClick={() => flashSaved(t.id)} title="このタイマーの設定を保存"
+              style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #2a7", background: "#eaf7ef", color: "#1a7", fontSize: 12, fontWeight: 700 }}>保存</button>
             <button onClick={() => onDuplicate(idx)} title="この内容を横にコピー"
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #888", background: "#fff", fontSize: 12, fontWeight: 700 }}>複製</button>
             <button onClick={() => onDelete(t.id)} title="削除"
@@ -178,14 +189,17 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
         {!t.tenKey && (
         <div style={{ ...fieldGap, marginTop: 12 }}>
           <span style={lbl}>通知ボタン（押すと「残り◯分◯秒」で鳴る・1つに2か所・最大4）</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {nbs.map((nb, i) => {
               const patch = (p) => setNbs(nbs.map((x, j) => j === i ? { ...x, ...p } : x));
-              // ①②共通の「残り 分 秒 + 音声」行
-              const point = (label, minKey, secKey, soundKey, hint) => (
-                <div style={{ border: "1px solid #eee", borderRadius: 6, padding: 6, background: "#fafafa" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#556" }}>{label}</span>
+              // ①②の各発火点（番号バッジ＋役割＋色分けで境目を明確化）
+              const point = (badge, caption, minKey, secKey, soundKey, tint) => (
+                <div style={{ border: "1px solid #cfd8e3", borderRadius: 8, padding: 8, background: tint }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: "50%", background: "#3b4a5e", color: "#fff", fontSize: 12, fontWeight: 800, flex: "0 0 auto" }}>{badge}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#445" }}>{caption}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 12 }}>残り</span>
                     <select style={{ ...sel, height: 30 }} value={nb[minKey]} onChange={(e) => patch({ [minKey]: Number(e.target.value) })}>
                       {MIN_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -194,8 +208,9 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
                       {SEC_OPTS.map((n) => <option key={n} value={n}>{n}</option>)}
                     </select><span style={{ fontSize: 12 }}>秒</span>
                   </div>
-                  <SoundSelect value={nb[soundKey]} onChange={(v) => patch({ [soundKey]: v })} opts={nOpts} />
-                  {hint && <div style={{ fontSize: 11, color: "#889", marginTop: 2 }}>{hint}</div>}
+                  <div style={{ marginTop: 6 }}>
+                    <SoundSelect value={nb[soundKey]} onChange={(v) => patch({ [soundKey]: v })} opts={nOpts} />
+                  </div>
                 </div>
               );
               // 並び替え（表示上の配置に直結するので上下移動できる）
@@ -208,10 +223,11 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
               };
               const orderBtn = { width: 26, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", fontSize: 13, lineHeight: 1, color: "#333" };
               return (
-                <div key={nb.id} style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 6, background: "#fff", display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#889", width: 20 }}>{i + 1}.</span>
-                    <input style={{ ...inp, height: 30, width: 78 }} maxLength={4} placeholder="ボタン名" value={nb.label}
+                <div key={nb.id} style={{ border: "2px solid #9fb0c6", borderRadius: 10, background: "#fff", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+                  {/* ヘッダ: 通知ボタン番号 + 名前 + 並び替え/削除 */}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "6px 8px", background: "#e9eef5", borderBottom: "1px solid #cfd8e3" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#2f3b4c", whiteSpace: "nowrap" }}>ボタン{i + 1}</span>
+                    <input style={{ ...inp, height: 30, width: 74 }} maxLength={4} placeholder="ボタン名" value={nb.label}
                       onChange={(e) => patch({ label: e.target.value })} />
                     <div style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center" }}>
                       <button onClick={() => moveNb(i - 1)} disabled={i === 0} title="上へ"
@@ -222,8 +238,11 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
                         style={{ padding: "2px 6px", borderRadius: 6, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 11 }}>×</button>
                     </div>
                   </div>
-                  {point("①", "min", "sec", "sound", null)}
-                  {point("②", "min2", "sec2", "sound2", "※②の音声を「（無音）」にすると②は鳴りません")}
+                  {/* 本体: ①②の2か所（色分け） */}
+                  <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {point("1", "1つ目に鳴らす", "min", "sec", "sound", "#eef5ff")}
+                    {point("2", "2つ目（「（無音）」でなし）", "min2", "sec2", "sound2", "#fff6e9")}
+                  </div>
                 </div>
               );
             })}
@@ -242,7 +261,12 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
     <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#fff", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #eee" }}>
         <div style={{ fontSize: 18, fontWeight: 800 }}>タイマー登録</div>
-        <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {savedKey === "__all__" && <span style={{ fontSize: 13, color: "#2a7", fontWeight: 700 }}>すべて保存しました</span>}
+          <button onClick={() => flashSaved("__all__")} title="すべてのタイマー設定を保存"
+            style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #2a7", background: "#2a7", color: "#fff", fontWeight: 800 }}>まとめて保存</button>
+          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
