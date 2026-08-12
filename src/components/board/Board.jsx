@@ -240,7 +240,7 @@ export default function Board() {
           const setTimers = timersForFrame(f);
           return (
             <TimerWindow
-              key={globalIndex}
+              key={`${globalIndex}:${f.setId ?? "none"}:${f.initialIndex}`}
               timers={setTimers}
               initialIndex={f.initialIndex}
               displayNo={globalIndex + 1}
@@ -271,6 +271,7 @@ export default function Board() {
           onAdd={addTimer}
           onMove={moveTimer}
           onSave={() => saveData({ timers, sets, board })}
+          onGoToSets={() => { setRegistryOpen(false); setSetEditorOpen(true); }}
           onClose={() => setRegistryOpen(false)}
         />
       )}
@@ -282,6 +283,7 @@ export default function Board() {
           onAddSet={addSet}
           onUpdateSet={updateSet}
           onDeleteSet={deleteSet}
+          onGoToBoard={() => { setSetEditorOpen(false); setBoardAssignOpen(true); }}
           onClose={() => setSetEditorOpen(false)}
         />
       )}
@@ -295,6 +297,7 @@ export default function Board() {
           onUpdateFrame={updateFrame}
           onAddPage={addBoardPage}
           onDeletePage={deleteBoardPage}
+          onSave={() => saveData({ timers, sets, board })}
           onClose={() => setBoardAssignOpen(false)}
         />
       )}

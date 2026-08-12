@@ -9,7 +9,7 @@ import React, { useState, useEffect } from "react";
 const inp = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0 8px", background: "#fff", fontSize: 14 };
 const lbl = { fontSize: 13, color: "#556", fontWeight: 700, marginBottom: 6 };
 
-export default function SetEditor({ sets = [], timers = [], onAddSet, onUpdateSet, onDeleteSet, onClose }) {
+export default function SetEditor({ sets = [], timers = [], onAddSet, onUpdateSet, onDeleteSet, onClose, onGoToBoard }) {
   const [selectedId, setSelectedId] = useState(sets[0]?.id ?? null);
 
   useEffect(() => {
@@ -47,7 +47,13 @@ export default function SetEditor({ sets = [], timers = [], onAddSet, onUpdateSe
     <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#fff", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #eee" }}>
         <div style={{ fontSize: 18, fontWeight: 800 }}>セット作成</div>
-        <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {onGoToBoard && (
+            <button onClick={onGoToBoard} title="ボード割り当てへ進む"
+              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #2a7", background: "#eaf7ef", color: "#1a7", fontWeight: 800 }}>次へ：ボード割り当て →</button>
+          )}
+          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        </div>
       </div>
 
       {/* セット選択 */}

@@ -8,10 +8,11 @@ import React, { useState, useEffect } from "react";
 const sel = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0 8px", background: "#fff", fontSize: 14, width: "100%", boxSizing: "border-box" };
 const lbl = { fontSize: 12, color: "#556", fontWeight: 700, marginBottom: 2 };
 
-export default function BoardAssign({ board, sets = [], timers = [], framesPerPage = 9, onUpdateFrame, onAddPage, onDeletePage, onClose }) {
+export default function BoardAssign({ board, sets = [], timers = [], framesPerPage = 9, onUpdateFrame, onAddPage, onDeletePage, onClose, onSave }) {
   const frames = board.frames || [];
   const pageCount = Math.max(1, Math.ceil(frames.length / framesPerPage));
   const [page, setPage] = useState(0);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => { if (page > pageCount - 1) setPage(pageCount - 1); }, [pageCount, page]);
 
@@ -31,7 +32,12 @@ export default function BoardAssign({ board, sets = [], timers = [], framesPerPa
     <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#fff", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #eee" }}>
         <div style={{ fontSize: 18, fontWeight: 800 }}>ボード割り当て</div>
-        <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {saved && <span style={{ fontSize: 13, color: "#2a7", fontWeight: 700 }}>保存しました</span>}
+          <button onClick={() => { onSave && onSave(); setSaved(true); setTimeout(onClose, 300); }} title="割り当てを保存してボードに反映"
+            style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #2a7", background: "#2a7", color: "#fff", fontWeight: 800 }}>保存して閉じる</button>
+          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+        </div>
       </div>
 
       {/* ページ選択 */}
