@@ -46,6 +46,14 @@ export default function Board() {
       arr.splice(idx + 1, 0, dup);
       return { ...d, timers: arr };
     });
+  const moveTimer = (idx, toIdx) =>
+    setData((d) => {
+      if (toIdx < 0 || toIdx >= d.timers.length || idx === toIdx) return d;
+      const arr = [...d.timers];
+      const [x] = arr.splice(idx, 1);
+      arr.splice(toIdx, 0, x);
+      return { ...d, timers: arr };
+    });
   const deleteTimer = (id) =>
     setData((d) => ({
       ...d,
@@ -261,6 +269,7 @@ export default function Board() {
           onDuplicate={duplicateTimer}
           onDelete={deleteTimer}
           onAdd={addTimer}
+          onMove={moveTimer}
           onSave={() => saveData({ timers, sets, board })}
           onClose={() => setRegistryOpen(false)}
         />

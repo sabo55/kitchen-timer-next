@@ -23,7 +23,7 @@ const inp = { height: 34, borderRadius: 8, border: "1px solid #bbb", padding: "0
 const lbl = { fontSize: 12, color: "#556", fontWeight: 700, marginBottom: 2 };
 const fieldGap = { display: "flex", flexDirection: "column", gap: 2, marginTop: 8 };
 
-export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose, onSave }) {
+export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDelete, onAdd, onClose, onSave, onMove }) {
   const sOpts = startEndOpts();
   const nOpts = notifyOpts();
 
@@ -63,6 +63,16 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
             <button onClick={() => onDelete(t.id)} title="削除"
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 12, fontWeight: 700 }}>削除</button>
           </div>
+        </div>
+
+        {/* 並び順の移動（コピー配置・整列に便利） */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8,
+          background: "#f3f6fa", border: "1px solid #e2e8f0", borderRadius: 8, padding: "3px 6px" }}>
+          <button onClick={() => onMove && onMove(idx, idx - 1)} disabled={idx === 0} title="左へ移動"
+            style={{ width: 30, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", color: "#333", fontSize: 13, lineHeight: 1, opacity: idx === 0 ? 0.35 : 1 }}>{"◀︎"}</button>
+          <span style={{ fontSize: 11, color: "#556", fontWeight: 700 }}>位置を移動</span>
+          <button onClick={() => onMove && onMove(idx, idx + 1)} disabled={idx === timers.length - 1} title="右へ移動"
+            style={{ width: 30, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", color: "#333", fontSize: 13, lineHeight: 1, opacity: idx === timers.length - 1 ? 0.35 : 1 }}>{"▶︎"}</button>
         </div>
 
         <div style={fieldGap}>
