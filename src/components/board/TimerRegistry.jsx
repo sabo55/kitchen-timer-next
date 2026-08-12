@@ -198,13 +198,29 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
                   {hint && <div style={{ fontSize: 11, color: "#889", marginTop: 2 }}>{hint}</div>}
                 </div>
               );
+              // 並び替え（表示上の配置に直結するので上下移動できる）
+              const moveNb = (to) => {
+                if (to < 0 || to >= nbs.length) return;
+                const arr = [...nbs];
+                const [x] = arr.splice(i, 1);
+                arr.splice(to, 0, x);
+                setNbs(arr);
+              };
+              const orderBtn = { width: 26, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", fontSize: 13, lineHeight: 1, color: "#333" };
               return (
                 <div key={nb.id} style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 6, background: "#fff", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <input style={{ ...inp, height: 30, width: 90 }} maxLength={4} placeholder="ボタン名" value={nb.label}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#889", width: 20 }}>{i + 1}.</span>
+                    <input style={{ ...inp, height: 30, width: 78 }} maxLength={4} placeholder="ボタン名" value={nb.label}
                       onChange={(e) => patch({ label: e.target.value })} />
-                    <button onClick={() => setNbs(nbs.filter((_, j) => j !== i))}
-                      style={{ marginLeft: "auto", padding: "2px 6px", borderRadius: 6, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 11 }}>×</button>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center" }}>
+                      <button onClick={() => moveNb(i - 1)} disabled={i === 0} title="上へ"
+                        style={{ ...orderBtn, opacity: i === 0 ? 0.35 : 1 }}>{"▲︎"}</button>
+                      <button onClick={() => moveNb(i + 1)} disabled={i === nbs.length - 1} title="下へ"
+                        style={{ ...orderBtn, opacity: i === nbs.length - 1 ? 0.35 : 1 }}>{"▼︎"}</button>
+                      <button onClick={() => setNbs(nbs.filter((_, j) => j !== i))} title="削除"
+                        style={{ padding: "2px 6px", borderRadius: 6, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 11 }}>×</button>
+                    </div>
                   </div>
                   {point("①", "min", "sec", "sound", null)}
                   {point("②", "min2", "sec2", "sound2", "※②の音声を「（無音）」にすると②は鳴りません")}
