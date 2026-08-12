@@ -34,10 +34,10 @@ export default function Board() {
   const snapshotRegistry = () => { registrySnapRef.current = JSON.parse(JSON.stringify({ timers, sets })); };
   const openRegistry = () => { snapshotRegistry(); setRegistryOpen(true); setMenuOpen(false); };
   const saveRegistry = () => { saveData({ timers, sets, board }); snapshotRegistry(); };
-  const discardRegistry = () => {
+  // スナップショットへ戻すだけ（画面の開閉は呼び出し側で行う）
+  const revertRegistry = () => {
     const s = registrySnapRef.current;
     if (s) setData((d) => ({ ...d, timers: s.timers, sets: s.sets }));
-    setRegistryOpen(false);
   };
 
   // 登録タイマー（プール）CRUD
@@ -283,7 +283,7 @@ export default function Board() {
           onAdd={addTimer}
           onMove={moveTimer}
           onSave={saveRegistry}
-          onDiscard={discardRegistry}
+          onRevert={revertRegistry}
           onGoToSets={() => { setRegistryOpen(false); setSetEditorOpen(true); }}
           onClose={() => setRegistryOpen(false)}
         />
