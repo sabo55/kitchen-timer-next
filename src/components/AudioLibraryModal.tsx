@@ -194,6 +194,36 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
     reader.readAsDataURL(file);
   };
 
+  // 複数ファイルを一括登録（各ファイル名を表示名にする）
+  const registerFiles = async (fileList: FileList) => {
+    const files = Array.from(fileList);
+    const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB
+    const items: SoundItem[] = [];
+    for (const f of files) {
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        window.alert(`「${f.name}」が大きすぎます（${Math.round(f.size / 1024)}KB）。1MB以下にしてください。`);
+        continue;
+      }
+      try {
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result || ""));
+          r.onerror = reject;
+          r.readAsDataURL(f);
+        });
+        items.push({
+          id: nid(),
+          name: f.name.replace(/\.[^/.]+$/, ""),
+          volume: 100,
+          dataUrl,
+          base64: dataUrl.includes(",") ? dataUrl.split(",")[1] : undefined,
+          mime: f.type || "audio/wav",
+        });
+      } catch {}
+    }
+    if (items.length) pushChange([...internal, ...items]);
+  };
+
   const updateItem = (id: string, patch: Partial<SoundItem>) => {
     const next = internal.map((s) => (s.id === id ? { ...s, ...patch } : s));
     pushChange(next);
@@ -272,8 +302,21 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
             <CardContent className="pt-6 grid gap-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div className="grid gap-2">
-                  <Label htmlFor="file">音声ファイルを追加</Label>
-                  <Input id="file" type="file" accept=".wav,.mp3,.m4a,.aac,.aiff,.aif,.caf,audio/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                  <Label htmlFor="file">音声ファイルを追加（複数選択で一括登録）</Label>
+                  <Input id="file" type="file" multiple accept=".wav,.mp3,.m4a,.aac,.aiff,.aif,.caf,audio/*"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (!files || !files.length) return;
+                      if (files.length === 1) {
+                        // 1つ: 表示名にファイル名を入れておく（微修正 or そのまま登録）
+                        setFile(files[0]);
+                        setDisplayName(files[0].name.replace(/\.[^/.]+$/, ""));
+                      } else {
+                        // 複数: ファイル名で一括登録
+                        registerFiles(files);
+                        e.currentTarget.value = "";
+                      }
+                    }} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">表示名</Label>
