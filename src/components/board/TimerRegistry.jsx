@@ -221,15 +221,15 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
                 arr.splice(to, 0, x);
                 setNbs(arr);
               };
-              const orderBtn = { width: 26, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", fontSize: 13, lineHeight: 1, color: "#333" };
+              const orderBtn = { width: 24, height: 24, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", fontSize: 12, lineHeight: 1, color: "#333", flex: "0 0 auto" };
               return (
                 <div key={nb.id} style={{ border: "2px solid #9fb0c6", borderRadius: 10, background: "#fff", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
                   {/* ヘッダ: 通知ボタン番号 + 名前 + 並び替え/削除 */}
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "6px 8px", background: "#e9eef5", borderBottom: "1px solid #cfd8e3" }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#2f3b4c", whiteSpace: "nowrap" }}>ボタン{i + 1}</span>
-                    <input style={{ ...inp, height: 30, width: 74 }} maxLength={4} placeholder="ボタン名" value={nb.label}
+                  <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "6px 8px", background: "#e9eef5", borderBottom: "1px solid #cfd8e3" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#2f3b4c", whiteSpace: "nowrap", flex: "0 0 auto" }}>ボタン{i + 1}</span>
+                    <input style={{ ...inp, height: 30, flex: "1 1 auto", minWidth: 0, width: "auto" }} maxLength={4} placeholder="ボタン名" value={nb.label}
                       onChange={(e) => patch({ label: e.target.value })} />
-                    <div style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 4, alignItems: "center", flex: "0 0 auto" }}>
                       <button onClick={() => moveNb(i - 1)} disabled={i === 0} title="上へ"
                         style={{ ...orderBtn, opacity: i === 0 ? 0.35 : 1 }}>{"▲︎"}</button>
                       <button onClick={() => moveNb(i + 1)} disabled={i === nbs.length - 1} title="下へ"

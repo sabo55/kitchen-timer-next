@@ -6,6 +6,64 @@ import { normalizeSoundId } from "../components/helpers";
 import * as SoundsHelper from "./sounds-helper";
 import { getAudioLibSync } from "./audio-store";
 
+// ==== 共有 AudioContext ====
+// 以前は TimerWindow ごとに AudioContext を生成していたため、9枠表示などで
+// 端末の「同時AudioContext数」の上限に達し、一部のカードが無音になることがあった。
+// アプリ全体で1つの AudioContext を共有し、壊れた（closed/interrupted）場合は作り直す。
+let sharedCtx = null;
+let keepAliveT = null;
+const bufCache = new Map(); // url -> AudioBuffer（共有contextに紐づく。作り直し時にクリア）
+
+function makeCtx() {
+  const Ctx = (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext)) || null;
+  if (!Ctx) return null;
+  try { return new Ctx(); } catch { return null; }
+}
+
+export async function ensureSharedCtx() {
+  const Ctx = (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext)) || null;
+  if (!Ctx) return null;
+  if (sharedCtx && sharedCtx.state === "closed") { sharedCtx = null; bufCache.clear(); }
+  if (!sharedCtx) { sharedCtx = makeCtx(); bufCache.clear(); }
+  if (!sharedCtx) return null;
+  if (sharedCtx.state !== "running") {
+    try { await sharedCtx.resume(); } catch {}
+  }
+  // iOSの "interrupted"（通話・他アプリ音・画面ロック明け等）でrunningに戻らない場合は作り直す
+  if (sharedCtx.state !== "running") {
+    try { sharedCtx.close(); } catch {}
+    sharedCtx = makeCtx();
+    bufCache.clear();
+    if (sharedCtx) { try { await sharedCtx.resume(); } catch {} }
+  }
+  if (!keepAliveT && sharedCtx) {
+    keepAliveT = setInterval(() => {
+      const ctx = sharedCtx;
+      if (!ctx) return;
+      if (ctx.state !== "running") { try { ctx.resume && ctx.resume().catch(() => {}); } catch {} return; }
+      try {
+        const g = ctx.createGain();
+        g.gain.value = 0.00001;
+        g.connect(ctx.destination);
+        const o = ctx.createOscillator();
+        o.frequency.value = 30;
+        o.connect(g);
+        const now = ctx.currentTime;
+        o.start(now);
+        o.stop(now + 0.02);
+      } catch {}
+    }, 4000);
+  }
+  return sharedCtx;
+}
+
+// フォアグラウンド復帰・タブ復帰時に先読みでresume（PWA/画面ロック明け対策）
+if (typeof document !== "undefined") {
+  const wake = () => { try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {} };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
+  window.addEventListener("focus", wake);
+}
+
 export function createSoundPlayer(opts = {}) {
   const baseVolume = Number.isFinite(opts.baseVolume) ? opts.baseVolume : 0.85;
   const getVol = typeof opts.getVolFor === "function" ? opts.getVolFor : () => 1;
@@ -14,37 +72,8 @@ export function createSoundPlayer(opts = {}) {
   let alarm8Loop = null;
   let alarm8WebLoop = null;
 
-  const audioCtxRef = { current: null };
-  const bufCache = new Map();
-  let keepAliveT = null;
-
-  const ensureCtx = async () => {
-    const Ctx = (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext)) || null;
-    if (!Ctx) return null;
-    if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-    if (audioCtxRef.current.state === "suspended") {
-      try { await audioCtxRef.current.resume(); } catch {}
-    }
-    if (!keepAliveT) {
-      keepAliveT = setInterval(() => {
-        try {
-          const ctx = audioCtxRef.current;
-          if (!ctx) return;
-          if (ctx.state === "suspended") { ctx.resume().catch(() => {}); return; }
-          const g = ctx.createGain();
-          g.gain.value = 0.00001;
-          g.connect(ctx.destination);
-          const o = ctx.createOscillator();
-          o.frequency.value = 30;
-          o.connect(g);
-          const now = ctx.currentTime;
-          o.start(now);
-          o.stop(now + 0.02);
-        } catch {}
-      }, 4000);
-    }
-    return audioCtxRef.current;
-  };
+  // AudioContext はアプリ全体で共有する（端末の同時AudioContext数上限による無音対策）
+  const ensureCtx = ensureSharedCtx;
 
   const decodeUrlToBuffer = async (url) => {
     const ctx = await ensureCtx();
