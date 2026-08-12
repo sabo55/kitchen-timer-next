@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { Lock, Volume2, Trash2, Edit3, Check, Music, Upload, ArrowUpDown, Plus, Minus } from "lucide-react";
 import { whenAudioReady, getAudioLibSync, saveAudioLibrary } from "@/lib/audio-store";
+import { loadSoundOrder, saveSoundOrder } from "@/lib/sounds-helper";
 
 // ================= Types =================
 export type SoundItem = {
@@ -71,7 +72,7 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
     }
   };
 
-  const [order, setOrder] = useState<"registered" | "aiueo">("registered");
+  const [order, setOrder] = useState<"registered" | "aiueo">(() => loadSoundOrder());
   const [internal, setInternal] = useState<SoundItem[]>(() => ensureBuiltins((sounds && sounds.length ? sounds : loadSaved())));
 
   useEffect(() => {
@@ -342,7 +343,7 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">並び替え</span>
-              <RadioGroup value={order} onValueChange={(v) => setOrder(v as any)} className="flex items-center gap-4">
+              <RadioGroup value={order} onValueChange={(v) => { setOrder(v as any); saveSoundOrder(v); }} className="flex items-center gap-4">
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="registered" id="order-registered" />
                   <Label htmlFor="order-registered" className="cursor-pointer flex items-center gap-1"><ArrowUpDown className="h-4 w-4"/>登録順</Label>

@@ -29,11 +29,27 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
 
   // 保存の確認フィードバック（変更は自動保存だが、明示保存＋「保存しました」を出す）
   const [savedKey, setSavedKey] = React.useState(null);
+  const [dirty, setDirty] = React.useState(false); // この画面で編集したか
   const flashSaved = (key) => {
     try { onSave && onSave(); } catch {}
+    setDirty(false);
     setSavedKey(key);
     setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1600);
   };
+
+  // 編集を伴う操作は dirty を立てる（閉じる時の案内用）
+  const dUpdate = (id, patch) => { setDirty(true); onUpdate(id, patch); };
+  const dDuplicate = (idx) => { setDirty(true); onDuplicate(idx); };
+  const dDelete = (id) => { setDirty(true); onDelete(id); };
+  const dAdd = () => { setDirty(true); onAdd(); };
+  const dMove = (idx, to) => { setDirty(true); onMove && onMove(idx, to); };
+
+  // 閉じる時、編集していれば案内（変更は自動保存済みだがユーザーに知らせる）
+  const handleClose = () => {
+    if (dirty && !window.confirm("編集した内容は自動で保存されています。このまま閉じてよろしいですか？")) return;
+    onClose();
+  };
+  const handleGoToSets = () => { try { onSave && onSave(); } catch {} setDirty(false); onGoToSets && onGoToSets(); };
 
   const SoundSelect = ({ value, onChange, opts }) => (
     <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={{ ...sel, width: "100%" }}>
@@ -43,7 +59,7 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
   );
 
   const col = (t, idx) => {
-    const upd = (patch) => onUpdate(t.id, patch);
+    const upd = (patch) => dUpdate(t.id, patch);
     const nbs = t.notifyButtons || [];
     const setNbs = (arr) => upd({ notifyButtons: arr });
 
@@ -58,9 +74,9 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
             {savedKey === t.id && <span style={{ fontSize: 11, color: "#2a7", fontWeight: 700 }}>保存しました</span>}
             <button onClick={() => flashSaved(t.id)} title="このタイマーの設定を保存"
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #2a7", background: "#eaf7ef", color: "#1a7", fontSize: 12, fontWeight: 700 }}>保存</button>
-            <button onClick={() => onDuplicate(idx)} title="この内容を横にコピー"
+            <button onClick={() => dDuplicate(idx)} title="この内容を横にコピー"
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #888", background: "#fff", fontSize: 12, fontWeight: 700 }}>複製</button>
-            <button onClick={() => onDelete(t.id)} title="削除"
+            <button onClick={() => dDelete(t.id)} title="削除"
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e53935", color: "#e53935", background: "#fff", fontSize: 12, fontWeight: 700 }}>削除</button>
           </div>
         </div>
@@ -68,10 +84,10 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
         {/* 並び順の移動（コピー配置・整列に便利） */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8,
           background: "#f3f6fa", border: "1px solid #e2e8f0", borderRadius: 8, padding: "3px 6px" }}>
-          <button onClick={() => onMove && onMove(idx, idx - 1)} disabled={idx === 0} title="左へ移動"
+          <button onClick={() => dMove(idx, idx - 1)} disabled={idx === 0} title="左へ移動"
             style={{ width: 30, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", color: "#333", fontSize: 13, lineHeight: 1, opacity: idx === 0 ? 0.35 : 1 }}>{"◀︎"}</button>
           <span style={{ fontSize: 11, color: "#556", fontWeight: 700 }}>位置を移動</span>
-          <button onClick={() => onMove && onMove(idx, idx + 1)} disabled={idx === timers.length - 1} title="右へ移動"
+          <button onClick={() => dMove(idx, idx + 1)} disabled={idx === timers.length - 1} title="右へ移動"
             style={{ width: 30, height: 26, padding: 0, borderRadius: 6, border: "1px solid #888", background: "#fff", color: "#333", fontSize: 13, lineHeight: 1, opacity: idx === timers.length - 1 ? 0.35 : 1 }}>{"▶︎"}</button>
         </div>
 
@@ -274,19 +290,19 @@ export default function TimerRegistry({ timers = [], onUpdate, onDuplicate, onDe
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {savedKey === "__all__" && <span style={{ fontSize: 13, color: "#2a7", fontWeight: 700 }}>すべて保存しました</span>}
           {onGoToSets && (
-            <button onClick={() => { onSave && onSave(); onGoToSets(); }} title="保存してセット作成へ進む"
+            <button onClick={handleGoToSets} title="保存してセット作成へ進む"
               style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #2a7", background: "#eaf7ef", color: "#1a7", fontWeight: 800 }}>次へ：セット作成 →</button>
           )}
           <button onClick={() => flashSaved("__all__")} title="すべてのタイマー設定を保存"
             style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #2a7", background: "#2a7", color: "#fff", fontWeight: 800 }}>まとめて保存</button>
-          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
+          <button onClick={handleClose} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid #888", background: "#f5f5f5", fontWeight: 700 }}>閉じる</button>
         </div>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           {timers.map((t, i) => col(t, i))}
-          <button onClick={onAdd} style={{
+          <button onClick={dAdd} style={{
             flex: "0 0 160px", height: 120, border: "2px dashed #aaa", borderRadius: 12, background: "#fff",
             fontSize: 16, fontWeight: 700, color: "#556",
           }}>＋タイマー追加</button>

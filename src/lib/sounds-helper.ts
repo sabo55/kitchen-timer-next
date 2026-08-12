@@ -85,6 +85,24 @@ export function loadTimeRegistry(): Record<string, boolean> {
   }
 }
 
+/* ========= 音声の並び順（音声ライブラリと候補リストで共有） ========= */
+export type SoundOrder = "registered" | "aiueo";
+export function loadSoundOrder(): SoundOrder {
+  try {
+    return localStorage.getItem("ktimer_sound_order_v1") === "aiueo" ? "aiueo" : "registered";
+  } catch { return "registered"; }
+}
+export function saveSoundOrder(v: string) {
+  try { localStorage.setItem("ktimer_sound_order_v1", v === "aiueo" ? "aiueo" : "registered"); } catch {}
+}
+// カスタム音声を並び順設定に従って並べ替える（内蔵は対象外）
+function orderCustoms(customs: SavedSound[]): SavedSound[] {
+  if (loadSoundOrder() === "aiueo") {
+    return [...customs].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"));
+  }
+  return customs;
+}
+
 /* ========= ID 正規化・URL解決 ========= */
 export function normalizeSoundId(v: any): string {
   const raw = String((v && (v.id ?? v.value ?? v.label)) ?? v ?? "").trim();
@@ -162,8 +180,8 @@ export function buildRadioSoundList(opts: {
   if (withTimes) list.push(...TIME_ITEMS);
   if (withCustom) {
     try {
-      const lib = loadAudioLibrary();
-      for (const s of lib) {
+      const customs = orderCustoms(loadAudioLibrary().filter((s) => !s.builtin));
+      for (const s of customs) {
         const id = normalizeSoundId(s.id);
         if (ex.has(id)) continue;
         list.push({ id, label: s.name || id });
@@ -211,9 +229,8 @@ export function buildRadioSoundGroups(opts: {
 
   if (withCustom) {
     try {
-      const lib = loadAudioLibrary();
       const custom: SoundOption[] = [];
-      for (const s of lib) {
+      for (const s of orderCustoms(loadAudioLibrary().filter((s) => !s.builtin))) {
         const id = normalizeSoundId(s.id);
         if (ex.has(id)) continue;
         custom.push({ id, label: s.name || id });
