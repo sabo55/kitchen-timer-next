@@ -4,6 +4,7 @@
 
 import { normalizeSoundId } from "../components/helpers";
 import * as SoundsHelper from "./sounds-helper";
+import { getAudioLibSync } from "./audio-store";
 
 export function createSoundPlayer(opts = {}) {
   const baseVolume = Number.isFinite(opts.baseVolume) ? opts.baseVolume : 0.85;
@@ -241,7 +242,7 @@ export function getVolFor(rawId) {
   try {
     const s = normalizeSoundId(rawId || "");
     if (!s) return 1;
-    const list = JSON.parse(localStorage.getItem("timerBoard_sounds_v1") || "[]");
+    const list = getAudioLibSync();
     const rec = Array.isArray(list) ? list.find((x) => String(x?.id) === s) : null;
     const v = Number(rec?.volume);
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v / 100)) : 1;

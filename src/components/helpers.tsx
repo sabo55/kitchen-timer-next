@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { getAudioLibSync } from "../lib/audio-store";
 
 /* ========== 定数 ========== */
 export const MINUTES = Array.from({ length: 100 }, (_, i) => i);
@@ -527,14 +528,10 @@ export const TIME_ITEMS: { id: string; label: string }[] = [
   { id: "1 hour has passed",     label: "60分経過" },
 ];
 
-// AudioLibrary（登録済み音源）を LocalStorage から読む
+// AudioLibrary（登録済み音源）を IndexedDB のメモリミラーから読む
 export type SavedSound = { id: string; name: string; volume?: number; builtin?: boolean; dataUrl?: string; url?: string; mime?: string };
 export function loadAudioLibrary(): SavedSound[] {
-  try {
-    const raw = localStorage.getItem("timerBoard_sounds_v1");
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+  return (getAudioLibSync() as SavedSound[]) || [];
 }
 
 // 時間アナウンスの “有効チェック” レジストリ（AudioLibraryModal が書く）

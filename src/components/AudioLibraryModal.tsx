@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { Lock, Volume2, Trash2, Edit3, Check, Music, Upload, ArrowUpDown, Plus, Minus } from "lucide-react";
+import { whenAudioReady, getAudioLibSync, saveAudioLibrary } from "@/lib/audio-store";
 
 // ================= Types =================
 export type SoundItem = {
@@ -49,12 +50,10 @@ function ensureBuiltins(sounds: SoundItem[]): SoundItem[] {
 const nid = () => `snd_${Math.random().toString(36).slice(2, 10)}`;
 
 export default function AudioLibraryModal({ open, onClose, sounds, onChange }: AudioLibraryModalProps) {
-  // 既存登録の復元（ローカルストレージから）
+  // 既存登録の復元（IndexedDBのメモリミラーから）
   const loadSaved = (): SoundItem[] => {
     try {
-      const raw = localStorage.getItem("timerBoard_sounds_v1");
-      if (!raw) return [];
-      const arr = JSON.parse(raw) as any[];
+      const arr = getAudioLibSync() as any[];
       return Array.isArray(arr)
         ? arr.map((s) => ({
             id: String(s.id ?? nid()),
@@ -82,16 +81,17 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
     }
   }, [sounds]);
 
-  // モーダルを開いたタイミングでローカル復元（親から何も来ていないケースをケア）
+  // モーダルを開いたタイミングで復元（IndexedDBの初期化完了を待つ）
   useEffect(() => {
     if (!open) return;
-    const saved = loadSaved();
-    if (saved.length > 0) {
-      setInternal(ensureBuiltins(saved));
-    } else {
-      // 少なくとも内蔵音は出す
-      setInternal(ensureBuiltins([]));
-    }
+    let alive = true;
+    (async () => {
+      await whenAudioReady();
+      if (!alive) return;
+      const saved = loadSaved();
+      setInternal(ensureBuiltins(saved.length > 0 ? saved : []));
+    })();
+    return () => { alive = false; };
   }, [open]);
 
   useEffect(() => {
@@ -135,25 +135,27 @@ export default function AudioLibraryModal({ open, onClose, sounds, onChange }: A
   const pushChange = (next: SoundItem[]) => {
     const withBuilt = ensureBuiltins(next);
 
-    try {
-      localStorage.setItem("timerBoard_sounds_v1", JSON.stringify(withBuilt));
-    } catch (e: any) {
+    // UIは即時反映し、永続化(IndexedDB)は非同期で。失敗時は元に戻す。
+    const prev = internal;
+    setInternal(withBuilt);
+    onChange?.(withBuilt);
+
+    saveAudioLibrary(withBuilt).catch((e: any) => {
       const isQuota =
         e?.name === "QuotaExceededError" ||
         e?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
         /quota/i.test(String(e?.name || "")) ||
         /quota|storage/i.test(String(e?.message || ""));
 
-     window.alert(
-  isQuota
-    ? "音声ライブラリの保存容量がいっぱいです。\n不要な音声を削除するか、短い音声ファイルにしてください。"
-    : "音声ライブラリの保存に失敗しました。"
-);
-      return;
-    }
-
-    setInternal(withBuilt);
-    onChange?.(withBuilt);
+      window.alert(
+        isQuota
+          ? "端末の保存容量がいっぱいです。\n不要な音声を削除するか、短い音声ファイルにしてください。"
+          : "音声ライブラリの保存に失敗しました。"
+      );
+      // 保存できなかったので画面も元に戻す
+      setInternal(prev);
+      onChange?.(prev);
+    });
   };
 
 

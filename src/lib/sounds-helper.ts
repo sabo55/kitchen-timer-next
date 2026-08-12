@@ -69,15 +69,10 @@ export function slugifyForSound(label: string) {
   return out;
 }
 
-/* ========= LocalStorage 読み書き ========= */
+/* ========= 音声ライブラリ読み込み（IndexedDBのメモリミラー） ========= */
+import { getAudioLibSync } from "./audio-store";
 export function loadAudioLibrary(): SavedSound[] {
-  try {
-    const raw = localStorage.getItem("timerBoard_sounds_v1");
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+  return (getAudioLibSync() as SavedSound[]) || [];
 }
 
 export function loadTimeRegistry(): Record<string, boolean> {
