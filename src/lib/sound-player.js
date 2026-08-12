@@ -20,6 +20,19 @@ function makeCtx() {
   try { return new Ctx(); } catch { return null; }
 }
 
+// resume() 後、実際に "running" になるまで待つ（iOSでは resume の反映が非同期なことがある）
+function waitForRunning(ctx, ms) {
+  if (!ctx || ctx.state === "running") return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; try { ctx.removeEventListener("statechange", onch); } catch {} resolve(); };
+    const onch = () => { if (ctx.state === "running") finish(); };
+    try { ctx.addEventListener("statechange", onch); } catch {}
+    try { ctx.resume && ctx.resume().catch(() => {}); } catch {}
+    setTimeout(finish, ms);
+  });
+}
+
 export async function ensureSharedCtx() {
   const Ctx = (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext)) || null;
   if (!Ctx) return null;
@@ -28,13 +41,15 @@ export async function ensureSharedCtx() {
   if (!sharedCtx) return null;
   if (sharedCtx.state !== "running") {
     try { await sharedCtx.resume(); } catch {}
+    // resume解決後もsuspendedなら、runningへの遷移を短時間待つ（音の「予約→遅延再生」を防ぐ）
+    if (sharedCtx.state === "suspended") await waitForRunning(sharedCtx, 350);
   }
   // iOSの "interrupted"（通話・他アプリ音・画面ロック明け等）でrunningに戻らない場合は作り直す
   if (sharedCtx.state !== "running") {
     try { sharedCtx.close(); } catch {}
     sharedCtx = makeCtx();
     bufCache.clear();
-    if (sharedCtx) { try { await sharedCtx.resume(); } catch {} }
+    if (sharedCtx) { try { await sharedCtx.resume(); } catch {} await waitForRunning(sharedCtx, 350); }
   }
   if (!keepAliveT && sharedCtx) {
     keepAliveT = setInterval(() => {
@@ -62,6 +77,29 @@ if (typeof document !== "undefined") {
   const wake = () => { try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {} };
   document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
   window.addEventListener("focus", wake);
+
+  // 最初のユーザー操作で AudioContext を解錠しておく（起動直後の最初のスタートが無音になる問題対策）。
+  // これで最初のスタート時には既に running になっているため、音が「予約→遅延再生」されない。
+  const unlock = async () => {
+    try {
+      const ctx = await ensureSharedCtx();
+      if (ctx && ctx.state === "running") {
+        try {
+          const b = ctx.createBuffer(1, 1, 22050);
+          const s = ctx.createBufferSource();
+          s.buffer = b;
+          s.connect(ctx.destination);
+          s.start(0);
+        } catch {}
+        document.removeEventListener("pointerdown", unlock);
+        document.removeEventListener("touchend", unlock);
+        document.removeEventListener("click", unlock);
+      }
+    } catch {}
+  };
+  document.addEventListener("pointerdown", unlock, { passive: true });
+  document.addEventListener("touchend", unlock, { passive: true });
+  document.addEventListener("click", unlock, { passive: true });
 }
 
 export function createSoundPlayer(opts = {}) {
@@ -69,6 +107,7 @@ export function createSoundPlayer(opts = {}) {
   const getVol = typeof opts.getVolFor === "function" ? opts.getVolFor : () => 1;
   const wb = typeof opts.withBase === "function" ? opts.withBase : (p) => p;
   const playing = [];
+  const webSources = new Set(); // 再生中の一発WebAudio音源（stopAllで止められるよう保持）
   let alarm8Loop = null;
   let alarm8WebLoop = null;
 
@@ -98,6 +137,9 @@ export function createSoundPlayer(opts = {}) {
     if (!ctx) return false;
     const buf = await decodeUrlToBuffer(url);
     if (!buf) return false;
+    // suspended のまま start(0) すると音が「予約」され、後で（別スタート時に）遅延再生される＝二重の原因。
+    // running でなければここでは鳴らさず false（呼び出し側はHTMLAudioフォールバックへ）。
+    if (ctx.state !== "running") return false;
     try {
       const src = ctx.createBufferSource();
       src.buffer = buf;
@@ -105,6 +147,8 @@ export function createSoundPlayer(opts = {}) {
       g.gain.value = vol01;
       src.connect(g);
       g.connect(ctx.destination);
+      webSources.add(src);
+      src.onended = () => { webSources.delete(src); try { src.disconnect(); } catch {} };
       src.start(0);
       return true;
     } catch {
@@ -142,6 +186,12 @@ export function createSoundPlayer(opts = {}) {
       try { alarm8Loop.loop = false; alarm8Loop.pause(); alarm8Loop.currentTime = 0; } catch {}
       alarm8Loop = null;
     }
+    // 再生中の一発WebAudio音源も止める（取消しても鳴り続ける／遅延再生を防ぐ）
+    for (const s of webSources) {
+      try { s.onended = null; s.stop(0); } catch {}
+      try { s.disconnect(); } catch {}
+    }
+    webSources.clear();
     while (playing.length) {
       const a = playing.pop();
       try { a.loop = false; a.pause(); a.currentTime = 0; } catch {}
@@ -154,8 +204,9 @@ export function createSoundPlayer(opts = {}) {
     const vol01 = Math.max(0, Math.min(1, baseVolume * getVol(id)));
 
     const tryWeb = async (base) => {
-      const wav = wb(`sounds/${base}.wav?id=${Date.now()}`);
-      const mp3 = wb(`sounds/${base}.mp3?id=${Date.now()}`);
+      // キャッシュを効かせるため id クエリは付けない（毎回デコードするとレース/遅延の原因）
+      const wav = wb(`sounds/${base}.wav`);
+      const mp3 = wb(`sounds/${base}.mp3`);
       return (await playBufOnce(wav, vol01)) || (await playBufOnce(mp3, vol01));
     };
 
