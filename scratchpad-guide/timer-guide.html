@@ -1,0 +1,178 @@
+<title>キッチンタイマー 使い方ガイド（タイマー画面）</title>
+<style>
+  :root {
+    --paper: #f3f5f8;
+    --card: #ffffff;
+    --ink: #1e2530;
+    --ink-soft: #55606f;
+    --line: #e2e7ee;
+    --accent: #1f7ae0;
+    --accent-soft: #eaf2fd;
+    --start: #2fa25a;
+    --start-soft: #e8f6ee;
+    --stop: #e0453b;
+    --stop-soft: #fdecea;
+    --run: #2f7dc0;
+    --run-soft: #e0f2ff;
+    --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 18px rgba(20,30,45,.06);
+    --font: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #12151b; --card: #1b1f27; --ink: #e9edf3; --ink-soft: #a3adba;
+      --line: #2b313b; --accent: #5aa2ee; --accent-soft: #1d2836;
+      --start: #4cc07c; --start-soft: #17271d; --stop: #f2685e; --stop-soft: #2a1917;
+      --run: #63a7e0; --run-soft: #16283a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f3f5f8; --card: #ffffff; --ink: #1e2530; --ink-soft: #55606f; --line: #e2e7ee;
+    --accent: #1f7ae0; --accent-soft: #eaf2fd; --start: #2fa25a; --start-soft: #e8f6ee;
+    --stop: #e0453b; --stop-soft: #fdecea; --run: #2f7dc0; --run-soft: #e0f2ff;
+    --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 18px rgba(20,30,45,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper: #12151b; --card: #1b1f27; --ink: #e9edf3; --ink-soft: #a3adba; --line: #2b313b;
+    --accent: #5aa2ee; --accent-soft: #1d2836; --start: #4cc07c; --start-soft: #17271d;
+    --stop: #f2685e; --stop-soft: #2a1917; --run: #63a7e0; --run-soft: #16283a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); line-height: 1.7;
+         -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 8px; }
+  .eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .12em; color: var(--accent); margin: 0 0 6px; }
+  h1 { font-size: clamp(1.55rem, 5vw, 2.05rem); font-weight: 800; line-height: 1.28; margin: 0 0 10px; text-wrap: balance; }
+  .lead { font-size: 1rem; color: var(--ink-soft); margin: 0; }
+  .note-inline { display: inline-block; margin-top: 12px; font-size: .85rem; color: var(--ink-soft);
+                 background: var(--accent-soft); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; }
+
+  h2 { font-size: 1.18rem; font-weight: 800; margin: 46px 0 4px; display: flex; align-items: center; gap: 10px; }
+  h2 .num { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff;
+            font-size: .9rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
+  .sub { color: var(--ink-soft); font-size: .9rem; margin: 2px 0 18px 36px; }
+
+  .cards { display: grid; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 6px; font-size: 1.08rem; font-weight: 800; display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .card h3 .k { flex: 0 0 auto; color: var(--accent); font-weight: 800; }
+  .card p { margin: 0; color: var(--ink); font-size: .96rem; }
+  .card p.soft { color: var(--ink-soft); }
+  .card p + p { margin-top: 8px; }
+
+  /* 主役カード（間違えた時の乗り換え） */
+  .hero-card { border: 2px solid var(--accent); }
+  .steps-inline { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+  .steps-inline li { display: flex; gap: 10px; align-items: flex-start; font-size: .96rem; }
+  .steps-inline .n { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 999px; background: var(--accent); color: #fff;
+                     font-size: .8rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .keypoints { margin: 12px 0 0; padding: 12px 14px; background: var(--accent-soft); border-radius: 12px; display: grid; gap: 8px; }
+  .keypoints div { display: flex; gap: 9px; align-items: flex-start; font-size: .94rem; }
+  .keypoints .dot { flex: 0 0 auto; margin-top: .5em; width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+  .keypoints b.red { color: var(--stop); }
+
+  /* 赤枠の見本ミニカード */
+  .demo { margin-top: 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .mini { width: 150px; background: var(--run-soft); border: 3px solid var(--stop); border-radius: 12px; padding: 12px;
+          text-align: center; box-shadow: var(--shadow); }
+  .mini .nm { font-weight: 800; font-size: .9rem; }
+  .mini .tm { font-size: 1.7rem; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; margin: 2px 0 6px; }
+  .mini .bt { background: var(--stop); color:#fff; border-radius: 7px; font-weight: 800; font-size: .8rem; padding: 5px 0; }
+  .demo .cap { flex: 1 1 180px; font-size: .9rem; color: var(--ink-soft); min-width: 160px; }
+  .demo .cap b { color: var(--stop); }
+
+  .mini-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 520px) { .mini-cards { grid-template-columns: 1fr; } }
+  .mc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .mc h4 { margin: 0 0 4px; font-size: .98rem; font-weight: 800; }
+  .mc p { margin: 0; font-size: .9rem; color: var(--ink-soft); }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .82rem; border-radius: 8px; padding: 3px 9px; }
+  .chip.start { background: var(--start); color:#fff; }
+  .chip.stop { background: var(--stop); color:#fff; }
+  .chip svg { width: 12px; height: 12px; display:block; }
+
+  .callout { margin-top: 40px; background: var(--stop-soft); border: 1px solid var(--line);
+             border-left: 5px solid var(--stop); border-radius: 12px; padding: 14px 18px; }
+  .callout b { color: var(--stop); }
+  .callout p { margin: 4px 0 0; font-size: .93rem; color: var(--ink); }
+
+  footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .82rem; }
+
+  @media print { body { background:#fff; } .card, .callout, .mc, .mini { box-shadow: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">スタッフ向け 操作ガイド</p>
+    <h1>キッチンタイマー<br>ここが変わりました（タイマー画面）</h1>
+    <p class="lead">お店で使うタイマー画面の変更点です。特に「タイマーの切り替え」が便利になりました。</p>
+    <span class="note-inline">設定（登録・音声・ボード）は触りません。使うのはこの画面だけです。</span>
+  </header>
+
+  <h2><span class="num">1</span>タイマーの切り替えが「スワイプ」でできる</h2>
+  <p class="sub">今までは名前の横の3つのボタンからだけでした。</p>
+  <div class="cards">
+    <div class="card">
+      <h3>時間の表示を左右にスワイプ</h3>
+      <p>タイマーの<b>時間の表示を左右にスワイプ</b>すると、隣のタイマーに切り替わります。</p>
+      <p class="soft">今まで通り、名前の右の<b>3つのボタン（左＝前 / 中＝今 / 右＝次）</b>でも切り替えられます。</p>
+    </div>
+  </div>
+
+  <h2><span class="num">2</span>スタート後に「間違えた！」と気付いたとき</h2>
+  <p class="sub">押し始めた後でも、別のタイマーに乗り換えられます。</p>
+  <div class="cards">
+    <div class="card hero-card">
+      <h3>長押し → スワイプで乗り換え</h3>
+      <p class="soft">動作中は誤操作防止でロックされています。次の手順で外して切り替えます。</p>
+      <ol class="steps-inline">
+        <li><span class="n">1</span><div>時間の表示を<b>長押し</b>（ロックが外れます）</div></li>
+        <li><span class="n">2</span><div>そのまま<b>左右にスワイプ</b>（または3つのボタン）で別のタイマーへ</div></li>
+      </ol>
+      <div class="keypoints">
+        <div><span class="dot"></span><div><b>経過した時間はそのまま引き継がれます。</b>0からやり直しにはなりません（例：30秒たっていたら、切り替え先も30秒たった状態から）。</div></div>
+        <div><span class="dot"></span><div>元のタイマーから動かしている間は、目印として<b class="red">赤い枠</b>が付きます。</div></div>
+      </div>
+      <div class="demo">
+        <div class="mini" aria-hidden="true">
+          <div class="nm">替玉</div>
+          <div class="tm">00:15</div>
+          <div class="bt">取消</div>
+        </div>
+        <div class="cap"><b>赤い枠</b>＝スタートした時と違うタイマーに切り替えている、という目印です。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>その他の変更</h2>
+  <p class="sub">軽く知っておけばOK。</p>
+  <div class="mini-cards">
+    <div class="mc"><h4>音が鳴らない・二重に鳴るを改善</h4><p>開いて最初のスタートでも鳴ります。別のを押した時に前の音と重なる不具合も解消。</p></div>
+    <div class="mc"><h4>通知ボタンは「残り時間」で鳴る</h4><p>1つのボタンで2か所。例）細麺＝残り1分5秒で声→残り1分でピッ。</p></div>
+    <div class="mc"><h4>通知の背景色を見やすく</h4><p>動作中の水色・終了の赤と紛らわしい色を、紫・シアンに変更。</p></div>
+    <div class="mc"><h4>歯車マークを削除</h4><p>各タイマーの右下の小さな歯車は使わないので消しました。</p></div>
+  </div>
+
+  <h2><span class="num">4</span>基本の操作（おさらい）</h2>
+  <p class="sub">いつも通りの操作です。</p>
+  <div class="cards">
+    <div class="card">
+      <p><span class="chip start"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l6 4-6 4z" fill="currentColor"/></svg>スタート</span>&nbsp; 緑を押すと開始。10キーのタイマーは数字を入れてからスタート。</p>
+      <p><span class="chip stop"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5h5v5h-5z" fill="currentColor"/></svg>取消</span>&nbsp; 動作中の「取消」を<b>長押し（約1秒）</b>で取り消し。</p>
+      <p class="soft"><b>終わったとき：</b>カードが赤く点滅して終了音。数秒で自動リセット、またはカードをタップですぐリセット。</p>
+      <p class="soft"><b>ページ切り替え：</b>画面下の中央の【◀ ▶】。</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>もし音が鳴らない時は</b>
+    <p>端末の音量とマナーモードを確認 → それでも鳴らなければアプリを一度閉じて開き直す。改善しない時は責任者へ。</p>
+  </div>
+
+  <footer>キッチンタイマー 操作ガイド ／ タイマー画面用。分からない所は責任者に確認してください。</footer>
+</div>

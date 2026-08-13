@@ -20,6 +20,54 @@ function makeCtx() {
   try { return new Ctx(); } catch { return null; }
 }
 
+// ==== 無音キープアライブ ====
+// iOSはアプリを放置/ロックすると音声セッションを止め、その後の再生が無音になる。
+// 極小音量・可聴域外(20Hz)の実質無音の音声をループ再生し続けてセッションを維持する。
+let keepAliveAudio = null;
+let keepAliveUrl = null;
+
+function makeKeepAliveUrl() {
+  if (keepAliveUrl) return keepAliveUrl;
+  try {
+    const sampleRate = 8000, seconds = 1, n = sampleRate * seconds;
+    const buf = new ArrayBuffer(44 + n * 2);
+    const dv = new DataView(buf);
+    const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); ws(8, "WAVE");
+    ws(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sampleRate, true); dv.setUint32(28, sampleRate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    ws(36, "data"); dv.setUint32(40, n * 2, true);
+    // 振幅3/32767・20Hz ≒ 完全に無音だが「非ゼロの実信号」なのでiOSが無音停止しにくい
+    for (let i = 0; i < n; i++) {
+      dv.setInt16(44 + i * 2, Math.round(Math.sin((2 * Math.PI * 20 * i) / sampleRate) * 3), true);
+    }
+    keepAliveUrl = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  } catch {}
+  return keepAliveUrl;
+}
+
+function ensureKeepAlivePlaying() {
+  const a = keepAliveAudio;
+  if (!a) return;
+  try { if (a.paused) a.play().catch(() => {}); } catch {}
+}
+
+function startKeepAliveAudio() {
+  if (keepAliveAudio) { ensureKeepAlivePlaying(); return; }
+  try {
+    const a = document.createElement("audio");
+    a.loop = true;
+    a.preload = "auto";
+    a.setAttribute("playsinline", "");
+    a.setAttribute("webkit-playsinline", "");
+    a.volume = 0.03; // サンプル自体が極小なので実質無音
+    const url = makeKeepAliveUrl();
+    if (url) a.src = url;
+    keepAliveAudio = a;
+    a.play().catch(() => {});
+  } catch {}
+}
+
 // resume() 後、実際に "running" になるまで待つ（iOSでは resume の反映が非同期なことがある）
 function waitForRunning(ctx, ms) {
   if (!ctx || ctx.state === "running") return Promise.resolve();
@@ -53,6 +101,7 @@ export async function ensureSharedCtx() {
   }
   if (!keepAliveT && sharedCtx) {
     keepAliveT = setInterval(() => {
+      ensureKeepAlivePlaying(); // 無音ループが止まっていたら鳴らし直す
       const ctx = sharedCtx;
       if (!ctx) return;
       if (ctx.state !== "running") { try { ctx.resume && ctx.resume().catch(() => {}); } catch {} return; }
@@ -74,13 +123,14 @@ export async function ensureSharedCtx() {
 
 // フォアグラウンド復帰・タブ復帰時に先読みでresume（PWA/画面ロック明け対策）
 if (typeof document !== "undefined") {
-  const wake = () => { try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {} };
+  const wake = () => { try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {} ensureKeepAlivePlaying(); };
   document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
   window.addEventListener("focus", wake);
 
   // 最初のユーザー操作で AudioContext を解錠しておく（起動直後の最初のスタートが無音になる問題対策）。
   // これで最初のスタート時には既に running になっているため、音が「予約→遅延再生」されない。
   const unlock = async () => {
+    startKeepAliveAudio(); // ユーザー操作内で無音ループを開始（セッション維持）
     try {
       const ctx = await ensureSharedCtx();
       if (ctx && ctx.state === "running") {
