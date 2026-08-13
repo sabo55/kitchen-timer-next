@@ -90,10 +90,13 @@ export function makeFrame(partial = {}) {
 }
 
 export function makeBoard(partial = {}) {
+  // 走行中にスワイプで別タイマーへ切り替える時の「長押し解除」秒数（0=長押しなし〜0.8）
+  const us = Number(partial.unlockSec);
   return {
     viewMode: partial.viewMode === "1" || partial.viewMode === "4" ? partial.viewMode : "9",
     page: 0,
     pageLock: !!partial.pageLock,
+    unlockSec: Number.isFinite(us) ? Math.min(0.8, Math.max(0, us)) : 0.5,
     // 枠は最大 27（3x3 x 3ページ）想定。足りない分は後で補完。
     frames: Array.isArray(partial.frames) ? partial.frames.map(makeFrame) : [],
   };

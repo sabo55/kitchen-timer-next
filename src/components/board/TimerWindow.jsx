@@ -29,11 +29,10 @@ const formatTenKeyBuf = (buf) => {
 const VOLUME = 0.85;
 const SNAP_MS = 20000;      // 待機中の初期位置スナップバック（無操作）
 const UNLOCK_MS = 6000;     // 走行中スワイプ解除の有効時間
-const LONGPRESS_MS = 500;   // 走行中の移動解除の長押し
 const BASE_W = 380;         // カード基準幅（スケール前）
 const MAX_SCALE = 2.2;
 
-export default function TimerWindow({ timers = [], initialIndex = 0, displayNo = 1 }) {
+export default function TimerWindow({ timers = [], initialIndex = 0, displayNo = 1, unlockMs = 500 }) {
   const clampIdx = (i) => Math.max(0, Math.min(timers.length - 1, i));
   const nCount = timers.length;
   const wrapIdx = (i) => (nCount > 0 ? ((i % nCount) + nCount) % nCount : 0); // 循環（端は折り返し）
@@ -232,7 +231,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   const pushDigit = (d) => { if (!running && !finished) setKeyBuf((b) => (String(b) + d).slice(-4)); };
   const clearBuf = () => { if (running || finished) return; setKeyBuf(""); setLastSec(0); };
 
-  const canMove = !finished && (!running || unlocked);
+  const canMove = !finished && (!running || unlocked || unlockMs <= 0);
 
   const moveTo = (target) => {
     if (!canMove || nCount <= 1) return;
@@ -277,10 +276,14 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   const SWIPE_DIST = 32;
   const gestureRef = useRef(null);
   const onPointerDown = (e) => {
-    const lpTimer = setTimeout(() => {
-      if (gestureRef.current) gestureRef.current.longFired = true;
-      if (running && !unlocked) armUnlock();
-    }, LONGPRESS_MS);
+    // 走行中の移動ロック解除は「長押し」。unlockMs<=0 なら長押し不要（いつでも移動可）。
+    let lpTimer = null;
+    if (running && !unlocked && unlockMs > 0) {
+      lpTimer = setTimeout(() => {
+        if (gestureRef.current) gestureRef.current.longFired = true;
+        armUnlock();
+      }, unlockMs);
+    }
     gestureRef.current = { x: e.clientX, y: e.clientY, moved: false, longFired: false, swiped: false, lpTimer };
   };
   const onPointerMove = (e) => {
@@ -409,7 +412,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
                 </div>
                 {running && (
                   <div style={{ fontSize: "0.75rem", color: unlocked ? "#e53935" : "#99a", marginBottom: 4, minHeight: 16, textAlign: "center" }}>
-                    {unlocked ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
+                    {(unlocked || unlockMs <= 0) ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
                   </div>
                 )}
                 <div style={{ flex: "1 1 auto", minHeight: 0, width: "100%", display: "grid", gridTemplateColumns: "repeat(3, 1fr) 1.5fr", gridTemplateRows: "repeat(4, minmax(0, 1fr))", gap: "clamp(3px, 1.2cqh, 8px)" }}>
@@ -451,7 +454,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
             {/* 走行中の移動解除ヒント */}
             {running && (
               <div style={{ fontSize: "0.75rem", color: unlocked ? "#e53935" : "#99a", marginBottom: 4, minHeight: 16 }}>
-                {unlocked ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
+                {(unlocked || unlockMs <= 0) ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
               </div>
             )}
 

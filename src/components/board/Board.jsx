@@ -212,6 +212,21 @@ export default function Board() {
             </div>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 8 }}>
+            <span style={{ fontWeight: 700 }}>スワイプ切替の長押し</span>
+            <select value={board.unlockSec ?? 0.5}
+              onChange={(e) => setBoard({ unlockSec: Number(e.target.value) })}
+              style={{ height: 32, borderRadius: 8, border: "1px solid #bbb", background: "#fff", fontWeight: 700, padding: "0 6px" }}>
+              <option value={0}>長押しなし</option>
+              {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8].map((s) => (
+                <option key={s} value={s}>{s.toFixed(1)}秒</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ fontSize: 11, color: "#889", marginBottom: 12 }}>
+            走行中に時間を長押しするとスワイプで別タイマーへ切替。短いほど切り替えやすく、長いほど誤操作しにくい。「長押しなし」はいつでもスワイプ可。
+          </div>
+
           <hr style={{ margin: "10px 0", border: 0, borderTop: "1px solid #eee" }} />
 
           <button onClick={openRegistry}
@@ -256,6 +271,7 @@ export default function Board() {
               timers={setTimers}
               initialIndex={f.initialIndex}
               displayNo={globalIndex + 1}
+              unlockMs={Math.round((board.unlockSec ?? 0.5) * 1000)}
             />
           );
         })}
