@@ -28,7 +28,7 @@ const formatTenKeyBuf = (buf) => {
 
 const VOLUME = 0.85;
 const SNAP_MS = 20000;      // 待機中の初期位置スナップバック（無操作）
-const UNLOCK_MS = 6000;     // 走行中スワイプ解除の有効時間
+const AUTOLOCK_MS = 3000;   // 走行中: 解除後この時間スワイプが無ければ自動で再ロック
 const BASE_W = 380;         // カード基準幅（スケール前）
 const MAX_SCALE = 2.2;
 
@@ -81,7 +81,8 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   }
   const player = playerRef.current;
 
-  const moved = running && curIdx !== startIdxRef.current;
+  // 赤枠＝「移動モード（ロック解除中）」の目印。ロックすると消える。
+  const moved = running && unlocked;
 
   const clearTimers = () => {
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
@@ -244,8 +245,8 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
     activeBgRef.current = null;
     setActiveBg(null); // 移動したら背景色通知はリセット（移動先の設定で再判定）
     if (running) {
-      setUnlocked(false);
-      if (unlockTRef.current) { clearTimeout(unlockTRef.current); unlockTRef.current = null; }
+      // 解除状態は保ったまま、自動ロックの猶予だけ延長（連続でスワイプ移動できる）
+      if (unlockMs > 0) scheduleRelock();
       const nt = totalSecOf(timersRef.current[next]);
       if (elapsedRef.current >= nt) finishNow();
     }
@@ -263,11 +264,19 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
     moveTo(next);
   };
 
+  // 無操作が続いたら自動で再ロック（スワイプのたびに延長する）
+  const scheduleRelock = () => {
+    if (unlockTRef.current) clearTimeout(unlockTRef.current);
+    unlockTRef.current = setTimeout(() => setUnlocked(false), AUTOLOCK_MS);
+  };
   const armUnlock = () => {
     if (!running) return;
     setUnlocked(true);
-    if (unlockTRef.current) clearTimeout(unlockTRef.current);
-    unlockTRef.current = setTimeout(() => setUnlocked(false), UNLOCK_MS);
+    scheduleRelock();
+  };
+  const lockNow = () => {
+    if (unlockTRef.current) { clearTimeout(unlockTRef.current); unlockTRef.current = null; }
+    setUnlocked(false);
   };
 
   // --- ジェスチャ（時間部） ---
@@ -276,12 +285,13 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   const SWIPE_DIST = 32;
   const gestureRef = useRef(null);
   const onPointerDown = (e) => {
-    // 走行中の移動ロック解除は「長押し」。unlockMs<=0 なら長押し不要（いつでも移動可）。
+    // 走行中の移動ロックは「長押し」でトグル（未解除→解除／解除中→固定）。
+    // unlockMs<=0 なら長押し不要（いつでも移動可）。
     let lpTimer = null;
-    if (running && !unlocked && unlockMs > 0) {
+    if (running && unlockMs > 0) {
       lpTimer = setTimeout(() => {
         if (gestureRef.current) gestureRef.current.longFired = true;
-        armUnlock();
+        if (unlocked) lockNow(); else armUnlock();
       }, unlockMs);
     }
     gestureRef.current = { x: e.clientX, y: e.clientY, moved: false, longFired: false, swiped: false, lpTimer };
@@ -412,7 +422,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
                 </div>
                 {running && (
                   <div style={{ fontSize: "0.75rem", color: unlocked ? "#e53935" : "#99a", marginBottom: 4, minHeight: 16, textAlign: "center" }}>
-                    {(unlocked || unlockMs <= 0) ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
+                    {unlockMs <= 0 ? "スワイプで移動できます" : (unlocked ? "移動中：スワイプで選び、長押しか放置で固定" : "長押しで移動解除")}
                   </div>
                 )}
                 <div style={{ flex: "1 1 auto", minHeight: 0, width: "100%", display: "grid", gridTemplateColumns: "repeat(3, 1fr) 1.5fr", gridTemplateRows: "repeat(4, minmax(0, 1fr))", gap: "clamp(3px, 1.2cqh, 8px)" }}>
@@ -454,7 +464,7 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
             {/* 走行中の移動解除ヒント */}
             {running && (
               <div style={{ fontSize: "0.75rem", color: unlocked ? "#e53935" : "#99a", marginBottom: 4, minHeight: 16 }}>
-                {(unlocked || unlockMs <= 0) ? "移動できます（スワイプ/ボタン）" : "長押しで移動解除"}
+                {unlockMs <= 0 ? "スワイプで移動できます" : (unlocked ? "移動中：スワイプで選び、長押しか放置で固定" : "長押しで移動解除")}
               </div>
             )}
 
