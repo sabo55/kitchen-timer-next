@@ -2,8 +2,9 @@
 // 1枠 = セット（帯）の中の1つを映す「窓」。見た目は旧 TimerCard を踏襲。
 // カードは固定基準幅(baseW)で組み、セルに合わせて自動スケールして必ず収める。
 // - ヘッダ右の3ボタン: 左=前 / 中=現在 / 右=次（タップで移動）
-// - 時間部を左右スワイプでも移動。走行中はロック→長押し(0.5秒)で一時解除
-// - 経過秒は移動しても引き継ぐ。走行中に初期位置から動いていると赤枠
+// - 時間部を左右スワイプで移動。走行中はロック→長押しで解除(赤枠=移動モード)、
+//   長押し秒数は設定(unlockMs)、解除中は連続スワイプ可、長押し/無操作で再ロック
+// - 経過秒は移動しても引き継ぐ
 // - 通知ボタン・終了自動リセットは登録タイマーごとの設定を使用
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
@@ -67,7 +68,6 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
   const firedRef = useRef(new Set());     // 発火済みタグ（btn:id / bg:id）
   const activeBgRef = useRef(null);
   const stopSeqRef = useRef(0);           // 終了ループ挿入シーケンスのキャンセル用トークン
-  const startIdxRef = useRef(curIdx);
   const tickRef = useRef(null);
   const stopAlarmRef = useRef(null);
   const autoResetRef = useRef(null);
@@ -166,7 +166,6 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
     startTotalRef.current = total;
     if (t?.tenKey && t.tenKeyKeepLast) setLastSec(total);
     if (t?.startSound) player.playById(t.startSound);
-    startIdxRef.current = curIdx;
     firedRef.current = new Set();
     elapsedRef.current = 0;
     setElapsed(0);
