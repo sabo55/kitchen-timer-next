@@ -247,6 +247,20 @@ export default function TimerWindow({ timers = [], initialIndex = 0, displayNo =
       // 解除状態は保ったまま、自動ロックの猶予だけ延長（連続でスワイプ移動できる）
       if (unlockMs > 0) scheduleRelock();
       const nt = totalSecOf(timersRef.current[next]);
+      // 移動先タイマーで「すでに過ぎている」通知(残り◯秒)は発火済み扱いにして鳴らさない。
+      // ＝これから残り時間が閾値を切ったときだけ鳴るようにする（過ぎた通知音は鳴らさない）。
+      const rem = nt - elapsedRef.current;
+      const nct = timersRef.current[next];
+      let passedColor = null; let passedColorAt = Infinity;
+      for (const bg of nct?.notifyBg || []) {
+        const tSec = Number(bg.min || 0) * 60 + Number(bg.sec || 0);
+        if (rem <= tSec) {
+          firedRef.current.add("bg:" + bg.id);
+          // すでに過ぎた背景色は、閾値が現在の残りに最も近いもの（＝最後に切ったもの）を表示に残す
+          if (bg.color && tSec < passedColorAt) { passedColor = bg.color; passedColorAt = tSec; }
+        }
+      }
+      if (passedColor) { activeBgRef.current = passedColor; setActiveBg(passedColor); }
       if (elapsedRef.current >= nt) finishNow();
     }
   };
