@@ -8,6 +8,7 @@ import TimerRegistry from "./TimerRegistry";
 import AudioLibraryModal from "../AudioLibraryModal";
 import SetEditor from "./SetEditor";
 import BoardAssign from "./BoardAssign";
+import WhatsNew from "./WhatsNew";
 import {
   loadData, saveData, resetToDefaults, setById, timerById,
   exportConfig, importConfig, makeTimer, makeSet, makeFrame,
@@ -26,8 +27,20 @@ export default function Board() {
   const [setEditorOpen, setSetEditorOpen] = useState(false);
   const [boardAssignOpen, setBoardAssignOpen] = useState(false);
   const [audioLibOpen, setAudioLibOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [ioText, setIoText] = useState("");
   const [ioMsg, setIoMsg] = useState("");
+
+  // 設定ボタンは「長押し」で開く（厨房での誤操作防止）。開いている時はタップで閉じる。
+  const settingsLPRef = useRef(null);
+  const cancelSettingsLP = () => {
+    if (settingsLPRef.current) { clearTimeout(settingsLPRef.current); settingsLPRef.current = null; }
+  };
+  const onSettingsDown = () => {
+    if (menuOpen) { setMenuOpen(false); return; }
+    cancelSettingsLP();
+    settingsLPRef.current = setTimeout(() => { setMenuOpen(true); settingsLPRef.current = null; }, 500);
+  };
 
   // タイマー登録の「保存しないで閉じる」用スナップショット（開いた時点/最後に保存した時点の timers・sets）
   const registrySnapRef = useRef(null);
@@ -176,14 +189,25 @@ export default function Board() {
   };
   // 右上カードの「隣ボタン(上)」と「歯車(下)」の間の右エッジに配置し、重なりを回避
   const floatBtn = {
-    position: "fixed", right: 6, top: 75, zIndex: 1001, padding: "8px 16px",
+    position: "fixed", right: 6, top: 75, zIndex: 1001, padding: "8px 14px",
     borderRadius: 12, border: "1px solid #888", background: "#fff", fontWeight: 700, fontSize: 15,
-    boxShadow: "0 2px 6px rgba(0,0,0,.15)",
+    boxShadow: "0 2px 6px rgba(0,0,0,.15)", lineHeight: 1.15,
+    userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "manipulation",
   };
 
   return (
     <div style={container}>
-      <button style={floatBtn} onClick={() => setMenuOpen((m) => !m)}>設定</button>
+      <button
+        style={floatBtn}
+        title="長押しで開く"
+        onPointerDown={onSettingsDown}
+        onPointerUp={cancelSettingsLP}
+        onPointerLeave={cancelSettingsLP}
+        onPointerCancel={cancelSettingsLP}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        設定<span style={{ display: "block", fontSize: 9, fontWeight: 700, color: "#999", marginTop: 1 }}>長押し</span>
+      </button>
 
       {menuOpen && (
         <div style={{
@@ -247,6 +271,11 @@ export default function Board() {
           <button onClick={() => { setAudioLibOpen(true); setMenuOpen(false); }}
             style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #37a", background: "#eaf1f9", color: "#248", fontWeight: 800, marginBottom: 8 }}>
             音声ライブラリ
+          </button>
+
+          <button onClick={() => { setWhatsNewOpen(true); setMenuOpen(false); }}
+            style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #b98", background: "#fbf3ec", color: "#96591f", fontWeight: 800, marginBottom: 8 }}>
+            変更点・使い方
           </button>
 
           <hr style={{ margin: "10px 0", border: 0, borderTop: "1px solid #eee" }} />
@@ -339,6 +368,8 @@ export default function Board() {
           return timers === d.timers ? d : { ...d, timers };
         })}
       />
+
+      <WhatsNew open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </div>
   );
 }
