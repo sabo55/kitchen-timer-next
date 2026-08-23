@@ -160,6 +160,9 @@ export function createSoundPlayer(opts = {}) {
   const webSources = new Set(); // 再生中の一発WebAudio音源（stopAllで止められるよう保持）
   let alarm8Loop = null;
   let alarm8WebLoop = null;
+  // 停止世代。stopAll のたびに +1。非同期の再生（await 中に stopAll が割り込む）が
+  // 「停止後に後から鳴り始める」ことを防ぐためのトークン。
+  let stopGen = 0;
 
   // AudioContext はアプリ全体で共有する（端末の同時AudioContext数上限による無音対策）
   const ensureCtx = ensureSharedCtx;
@@ -183,6 +186,7 @@ export function createSoundPlayer(opts = {}) {
   };
 
   const playBufOnce = async (url, vol01) => {
+    const gen = stopGen;
     const ctx = await ensureCtx();
     if (!ctx) return false;
     const buf = await decodeUrlToBuffer(url);
@@ -190,6 +194,8 @@ export function createSoundPlayer(opts = {}) {
     // suspended のまま start(0) すると音が「予約」され、後で（別スタート時に）遅延再生される＝二重の原因。
     // running でなければここでは鳴らさず false（呼び出し側はHTMLAudioフォールバックへ）。
     if (ctx.state !== "running") return false;
+    // await 中に stopAll が割り込んでいたら鳴らさない（停止後の遅延再生を防ぐ）
+    if (gen !== stopGen) return false;
     try {
       const src = ctx.createBufferSource();
       src.buffer = buf;
@@ -227,6 +233,7 @@ export function createSoundPlayer(opts = {}) {
   };
 
   const stopAll = () => {
+    stopGen++; // 進行中の非同期再生を「無効化」する（後から鳴り始めるのを防ぐ）
     if (alarm8WebLoop) {
       try { alarm8WebLoop.stop(0); } catch {}
       try { alarm8WebLoop.disconnect(); } catch {}
@@ -325,6 +332,7 @@ export function createSoundPlayer(opts = {}) {
     playById,
     playByIdForDuration: async (id, ms) => { await playById(id); await new Promise((r) => setTimeout(r, ms)); },
     playGaplessAlarm8: async () => {
+      const gen = stopGen; // この再生開始要求の世代
       try {
         const ctx = await ensureCtx();
         if (ctx) {
@@ -332,6 +340,8 @@ export function createSoundPlayer(opts = {}) {
           const mp3 = wb(`sounds/alarm8.mp3?id=${Date.now()}`);
           const buf = (await decodeUrlToBuffer(wav)) || (await decodeUrlToBuffer(mp3));
           if (buf) {
+            // await 中に stopAll が来ていたら鳴らさない（停止後に後から鳴り出すのを防ぐ）
+            if (gen !== stopGen) return false;
             if (alarm8WebLoop) {
               try { alarm8WebLoop.stop(0); } catch {}
               try { alarm8WebLoop.disconnect(); } catch {}
@@ -346,11 +356,19 @@ export function createSoundPlayer(opts = {}) {
             g.connect(ctx.destination);
             src.start(0);
             alarm8WebLoop = src;
+            // 開始とアサインの間に stopAll が入っていた場合の取りこぼしを防ぐ
+            if (gen !== stopGen) {
+              try { src.stop(0); } catch {}
+              try { src.disconnect(); } catch {}
+              alarm8WebLoop = null;
+              return false;
+            }
             return true;
           }
         }
       } catch {}
       try {
+        if (gen !== stopGen) return false;
         if (!alarm8Loop) {
           alarm8Loop = mk(["alarm8"]);
           alarm8Loop.loop = true;
@@ -358,6 +376,11 @@ export function createSoundPlayer(opts = {}) {
         alarm8Loop.volume = Math.max(0, Math.min(1, baseVolume * getVol("alarm8")));
         try { alarm8Loop.currentTime = 0; } catch {}
         await alarm8Loop.play();
+        // 再生開始までの await 中に stopAll が来ていたら止める
+        if (gen !== stopGen) {
+          try { alarm8Loop.loop = false; alarm8Loop.pause(); alarm8Loop.currentTime = 0; } catch {}
+          return false;
+        }
         return true;
       } catch {
         return false;
