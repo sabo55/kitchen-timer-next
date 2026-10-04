@@ -68,6 +68,35 @@ function startKeepAliveAudio() {
   } catch {}
 }
 
+// ==== 長いスリープ明けの作り直し ====
+// iPadを長時間スリープさせると、AudioContext が interrupted のまま戻らない／
+// running と表示されるのに無音、という状態になることがある（アプリ再起動で直る症状）。
+// 一定時間以上バックグラウンドにいたら「要作り直し」とし、次のユーザー操作の中で作り直す。
+const SUSPECT_HIDDEN_MS = 60000;
+let ctxSuspect = false;
+let hiddenAt = 0;
+
+function refreshAudioInGesture() {
+  ctxSuspect = false;
+  const old = sharedCtx;
+  sharedCtx = makeCtx();
+  bufCache.clear();
+  if (old) { try { const p = old.close(); if (p && p.catch) p.catch(() => {}); } catch {} }
+  if (sharedCtx) {
+    try { sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {}
+    try {
+      const b = sharedCtx.createBuffer(1, 1, 22050);
+      const s = sharedCtx.createBufferSource();
+      s.buffer = b;
+      s.connect(sharedCtx.destination);
+      s.start(0);
+    } catch {}
+  }
+  // 無音ループも作り直す（スリープで audio 要素ごと止まっていることがある）
+  if (keepAliveAudio) { try { keepAliveAudio.pause(); } catch {} keepAliveAudio = null; }
+  startKeepAliveAudio();
+}
+
 // resume() 後、実際に "running" になるまで待つ（iOSでは resume の反映が非同期なことがある）
 function waitForRunning(ctx, ms) {
   if (!ctx || ctx.state === "running") return Promise.resolve();
@@ -123,9 +152,40 @@ export async function ensureSharedCtx() {
 
 // フォアグラウンド復帰・タブ復帰時に先読みでresume（PWA/画面ロック明け対策）
 if (typeof document !== "undefined") {
-  const wake = () => { try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {} ensureKeepAlivePlaying(); };
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
+  const wake = () => {
+    try {
+      if (sharedCtx && sharedCtx.state === "interrupted") ctxSuspect = true;
+      if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {});
+    } catch {}
+    ensureKeepAlivePlaying();
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt >= SUSPECT_HIDDEN_MS) ctxSuspect = true;
+    hiddenAt = 0;
+    wake();
+  });
   window.addEventListener("focus", wake);
+  window.addEventListener("pageshow", (e) => { if (e.persisted) ctxSuspect = true; });
+
+  // visibilitychange が来ないままJSが凍結された場合（画面ロック等）も、時刻の飛びで検知する
+  let lastBeat = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    if (now - lastBeat >= SUSPECT_HIDDEN_MS) ctxSuspect = true;
+    lastBeat = now;
+  }, 5000);
+
+  // 毎回のユーザー操作の先頭（capture＝Reactのハンドラより前）で音声エンジンを点検する。
+  // 長いスリープ明けは、この操作の中で AudioContext と無音ループを作り直す。
+  const onGesture = () => {
+    if (ctxSuspect) { refreshAudioInGesture(); return; }
+    try { if (sharedCtx && sharedCtx.state !== "running") sharedCtx.resume && sharedCtx.resume().catch(() => {}); } catch {}
+    ensureKeepAlivePlaying();
+  };
+  document.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
+  document.addEventListener("touchend", onGesture, { capture: true, passive: true });
+  document.addEventListener("click", onGesture, { capture: true, passive: true });
 
   // 最初のユーザー操作で AudioContext を解錠しておく（起動直後の最初のスタートが無音になる問題対策）。
   // これで最初のスタート時には既に running になっているため、音が「予約→遅延再生」されない。
